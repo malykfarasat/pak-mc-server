@@ -56,54 +56,62 @@ download() {
 }
 
 # ── 1. Fabric API (required by nearly all Fabric mods) ───────────────────────
+rm -f fabric-api.jar
 FABRIC_API_URL=$(get_modrinth_url "fabric-api" "$MC_VERSION" || true)
 download "Fabric API" "$FABRIC_API_URL" "fabric-api.jar" || true
 
 # ── 2. Geyser-Fabric (Bedrock Edition bridge) ─────────────────────────────────
+rm -f geyser-fabric.jar
 echo "  → Geyser-Fabric"
-if curl -fsSL "https://download.geysermc.org/v2/projects/geyser/versions/latest/builds/latest/downloads/fabric" \
+if curl -fsSL "https://download.geysermc.org/v2/projects/geyser/versions/1.21.1/builds/latest/downloads/fabric" \
      -o "geyser-fabric.jar"; then
   echo "     ✅ $(du -h geyser-fabric.jar | cut -f1) → geyser-fabric.jar"
 else
-  echo "     ❌ Geyser download failed"
+  curl -fsSL "https://download.geysermc.org/v2/projects/geyser/versions/latest/builds/latest/downloads/fabric" -o "geyser-fabric.jar"
 fi
 
 # ── 3. Floodgate-Fabric (Bedrock player authentication) ──────────────────────
+rm -f floodgate-fabric.jar
 echo "  → Floodgate-Fabric"
-if curl -fsSL "https://download.geysermc.org/v2/projects/floodgate/versions/latest/builds/latest/downloads/fabric" \
+if curl -fsSL "https://download.geysermc.org/v2/projects/floodgate/versions/1.21.1/builds/latest/downloads/fabric" \
      -o "floodgate-fabric.jar"; then
   echo "     ✅ $(du -h floodgate-fabric.jar | cut -f1) → floodgate-fabric.jar"
 else
-  echo "     ❌ Floodgate download failed"
+  curl -fsSL "https://download.geysermc.org/v2/projects/floodgate/versions/latest/builds/latest/downloads/fabric" -o "floodgate-fabric.jar"
 fi
 
 # ── 4. ViaFabric (lets any Java version 1.8+ join) ───────────────────────────
+rm -f viafabric.jar viafabricplus.jar viafabric-mc*.jar
 VIAFABRIC_URL=$(get_modrinth_url "viafabric" "$MC_VERSION" || true)
 download "ViaFabric" "$VIAFABRIC_URL" "viafabric.jar" || true
 
-# ── 5. ViaFabricPlus (optional — enhances ViaFabric for older clients) ───────
-VIAFABRICPLUS_URL=$(get_modrinth_url "viafabricplus" "$MC_VERSION" || true)
-download "ViaFabricPlus" "$VIAFABRICPLUS_URL" "viafabricplus.jar" || true
-
-# ── 6. Simple Voice Chat (proximity voice) ───────────────────────────────────
+# ── 5. Simple Voice Chat (proximity voice) ───────────────────────────────────
+rm -f voicechat.jar
 VOICECHAT_URL=$(get_modrinth_url "simple-voice-chat" "$MC_VERSION" || true)
 download "Simple Voice Chat" "$VOICECHAT_URL" "voicechat.jar" || true
 
-# ── 7. Lithium (performance — highly recommended for small runners) ──────────
+# ── 6. Lithium (performance — highly recommended for small runners) ──────────
+rm -f lithium.jar
 LITHIUM_URL=$(get_modrinth_url "lithium" "$MC_VERSION" || true)
 download "Lithium" "$LITHIUM_URL" "lithium.jar" || true
 
-# ── 8. FerriteCore (memory usage optimization) ───────────────────────────────
+# ── 7. FerriteCore (memory usage optimization) ───────────────────────────────
+rm -f ferrite-core.jar
 FERRITE_URL=$(get_modrinth_url "ferrite-core" "$MC_VERSION" || true)
 download "FerriteCore" "$FERRITE_URL" "ferrite-core.jar" || true
 
-# ── 9. Krypton (network stack optimization) ──────────────────────────────────
+# ── 8. Krypton (network stack optimization) ──────────────────────────────────
+rm -f krypton.jar
 KRYPTON_URL=$(get_modrinth_url "krypton" "$MC_VERSION" || true)
 download "Krypton" "$KRYPTON_URL" "krypton.jar" || true
 
-# ── 10. Spark (profiling — useful for server admin) ──────────────────────────
+# ── 9. Spark (profiling) ─────────────────────────────────────────────────────
+rm -f spark.jar
 SPARK_URL=$(get_modrinth_url "spark" "$MC_VERSION" || true)
 download "Spark" "$SPARK_URL" "spark.jar" || true
+
+# ── Cleanup ──────────────────────────────────────────────────────────────────
+rm -f viafabric-mc*.jar viafabricplus-*.jar
 
 echo ""
 echo "📋 Final mod list:"
