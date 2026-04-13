@@ -30,7 +30,7 @@ jobs:
 
     env:
       MC_VERSION: "1.21.1"
-      FABRIC_LOADER_VERSION: "0.16.9"
+      FABRIC_LOADER_VERSION: "0.18.2"
       FABRIC_INSTALLER_VERSION: "1.0.1"
 
     steps:
