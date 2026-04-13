@@ -81,6 +81,20 @@ async function jsonStatus(host, bedrockPort) {
 // HTML page
 // ─────────────────────────────────────────────────────────────────────────────
 
+async function renderPage(host, bedrockPort) {
+  const [java, bedrock] = await Promise.all([
+    fetchJavaStatus(host),
+    fetchBedrockStatus(host, bedrockPort),
+  ]);
+
+  const online = java?.online === true || bedrock?.online === true;
+  const players = java?.players?.online ?? bedrock?.players?.online ?? 0;
+  const maxPlayers = java?.players?.max ?? bedrock?.players?.max ?? 20;
+  const version = java?.version ?? bedrock?.version?.name ?? "1.21.1";
+  const motdRaw = java?.motd?.clean?.[0] ?? "PAK MC SERVER | We Will Rise Again";
+  const motd = escapeHtml(motdRaw);
+  const playerList = (java?.players?.list ?? []).map((p) => p.name ?? p);
+
   const html = `<!DOCTYPE html>
 <html lang="en">
 <head>
