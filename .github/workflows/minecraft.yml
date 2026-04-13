@@ -93,25 +93,10 @@ jobs:
           path: |
             world
             config
-          key: pak-mc-persistence-${{ github.run_id }}
+            playit.toml
+          key: pak-mc-root-persistence-${{ github.run_id }}
           restore-keys: |
-            pak-mc-persistence-
-
-      - name: Report persistence status
-        run: |
-          REPORT=""
-          if [ -d world ] && [ -n "$(ls -A world 2>/dev/null)" ]; then
-            REPORT="✅ World restored ($(du -sh world | cut -f1))"
-          else
-            REPORT="🆕 Fresh world"
-          fi
-          
-          if [ -d config ] && [ -n "$(ls -A config 2>/dev/null)" ]; then
-            REPORT="$REPORT | ✅ Config restored ($(du -sh config | cut -f1))"
-          else
-            REPORT="$REPORT | 🆕 Fresh config"
-          fi
-          echo "$REPORT"
+            pak-mc-root-persistence-
 
       # ── 10. Install playit.gg agent ────────────────────────────────────────
       - name: Install playit.gg agent
@@ -120,9 +105,17 @@ jobs:
           curl -SsL https://github.com/playit-gg/playit-agent/releases/latest/download/playit-linux-amd64 -o playit
           chmod +x playit
 
-      # ── 11. Start playit tunnel ────────────────────────────────────────────
+      # ── 11. Start Geyser Bridge (Background) ───────────────────────────────
+      - name: Start Geyser Bridge
+        run: |
+          echo "🌉 Initializing Geyser-Standalone Bridge..."
+          mkdir -p config/geyser-standalone
+          # Run Geyser in background. It will auto-generate config if missing or use ours.
+          nohup java -jar Geyser.jar --config config/geyser-standalone/config.yml > geyser.log 2>&1 &
+          echo "✅ Geyser Bridge started in background"
+
+      # ── 12. Start playit tunnel ────────────────────────────────────────────
       - name: Start playit tunnel
-        id: playit-tunnel
         env:
           PLAYIT_SECRET: ${{ secrets.PLAYIT_SECRET_KEY }}
         run: |

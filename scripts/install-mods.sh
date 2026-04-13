@@ -1,21 +1,21 @@
 #!/usr/bin/env bash
 # ─────────────────────────────────────────────────────────────────────────────
 # PAK MC SERVER — Server mod installer
-# Standardized for Root directory execution and ViaFabricPlus consolidation.
+# Standardized for Root directory execution and Geyser-Standalone Bridge.
 # ─────────────────────────────────────────────────────────────────────────────
 set -euo pipefail
 
 MC_VERSION="${MC_VERSION:-1.21.1}"
 MODS_DIR="$(cd "$(dirname "$0")/.." && pwd)/mods"
+ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 
 mkdir -p "$MODS_DIR"
-cd "$MODS_DIR"
 
-echo "📦 Installing PAK MC SERVER mods for Minecraft $MC_VERSION (Root Mode)"
+echo "📦 Installing PAK MC SERVER mods for Minecraft $MC_VERSION"
 echo "    Target directory: $MODS_DIR"
 
-# Ensure config directories exist to prevent mod initialization crashes
-mkdir -p ../config/floodgate ../config/geyser
+# Ensure basic config directories exist
+mkdir -p "$ROOT_DIR/config"
 
 # ── Helper: fetch latest Fabric-compatible version from Modrinth ──────────────
 get_modrinth_url() {
@@ -41,6 +41,7 @@ download() {
   local name="$1"
   local url="$2"
   local filename="$3"
+  local dest="${4:-$MODS_DIR}"
 
   if [ -z "$url" ]; then
     echo "  ⚠️  $name — no URL (skipped)"
@@ -48,58 +49,41 @@ download() {
   fi
 
   echo "  → $name"
-  if curl -fsSL "$url" -o "$filename"; then
-    echo "     ✅ $(du -h "$filename" | cut -f1) → $filename"
+  if curl -fsSL "$url" -o "$dest/$filename"; then
+    echo "     ✅ $(du -h "$dest/$filename" | cut -f1) → $filename"
   else
     echo "     ❌ download failed for $name"
-    rm -f "$filename"
+    rm -f "$dest/$filename"
     return 1
   fi
 }
 
 # ── 1. Fabric API (required) ─────────────────────────────────────────────────
-rm -f fabric-api.jar
-FABRIC_API_URL=$(get_modrinth_url "fabric-api" "$MC_VERSION" || true)
-download "Fabric API" "$FABRIC_API_URL" "fabric-api.jar" || true
+download "Fabric API" "$(get_modrinth_url "fabric-api" "$MC_VERSION")" "fabric-api.jar"
 
-# ── 2. Geyser-Fabric (Bedrock Bridge) ────────────────────────────────────────
-rm -f geyser-fabric.jar
-GEYSER_URL=$(get_modrinth_url "geyser" "$MC_VERSION" || true)
-download "Geyser-Fabric" "$GEYSER_URL" "geyser-fabric.jar" || true
+# ── 2. Geyser-Standalone (Bedrock Bridge) ────────────────────────────────────
+# We download this to the project root, NOT the mods folder.
+echo "  → Geyser-Standalone (Bridge Mode)"
+GEYSER_ST_URL="https://download.geysermc.org/v2/projects/geyser/versions/latest/builds/latest/downloads/standalone"
+download "Geyser-Standalone" "$GEYSER_ST_URL" "Geyser.jar" "$ROOT_DIR"
 
-# ── 3. Floodgate-Fabric (Bedrock Auth) ───────────────────────────────────────
-rm -f floodgate-fabric.jar
-FLOODGATE_URL=$(get_modrinth_url "floodgate" "$MC_VERSION" || true)
-download "Floodgate-Fabric" "$FLOODGATE_URL" "floodgate-fabric.jar" || true
+# ── 3. ViaFabricPlus (Cross-version support) ─────────────────────────────────
+download "ViaFabricPlus" "$(get_modrinth_url "viafabricplus" "$MC_VERSION")" "viafabricplus.jar"
 
-# ── 4. ViaFabricPlus (All-in-one Cross-version support) ──────────────────────
-# Note: This replaces ViaVersion, ViaBackwards, and ViaFabric.
-rm -f via*.jar
-VIA_PLUS_URL=$(get_modrinth_url "viafabricplus" "$MC_VERSION" || true)
-download "ViaFabricPlus" "$VIA_PLUS_URL" "viafabricplus.jar" || true
+# ── 4. Simple Voice Chat ─────────────────────────────────────────────────────
+download "Simple Voice Chat" "$(get_modrinth_url "simple-voice-chat" "$MC_VERSION")" "voicechat.jar"
 
-# ── 5. Simple Voice Chat ─────────────────────────────────────────────────────
-rm -f voicechat.jar
-VOICECHAT_URL=$(get_modrinth_url "simple-voice-chat" "$MC_VERSION" || true)
-download "Simple Voice Chat" "$VOICECHAT_URL" "voicechat.jar" || true
+# ── 5. Performance Mods ──────────────────────────────────────────────────────
+download "Lithium" "$(get_modrinth_url "lithium" "$MC_VERSION")" "lithium.jar"
+download "FerriteCore" "$(get_modrinth_url "ferrite-core" "$MC_VERSION")" "ferrite-core.jar"
+download "Krypton" "$(get_modrinth_url "krypton" "$MC_VERSION")" "krypton.jar"
 
-# ── 6. Performance & Optimization ────────────────────────────────────────────
-rm -f lithium.jar ferrite-core.jar krypton.jar
-LITHIUM_URL=$(get_modrinth_url "lithium" "$MC_VERSION" || true)
-download "Lithium" "$LITHIUM_URL" "lithium.jar" || true
-
-FERRITE_URL=$(get_modrinth_url "ferrite-core" "$MC_VERSION" || true)
-download "FerriteCore" "$FERRITE_URL" "ferrite-core.jar" || true
-
-KRYPTON_URL=$(get_modrinth_url "krypton" "$MC_VERSION" || true)
-download "Krypton" "$KRYPTON_URL" "krypton.jar" || true
-
-# ── 7. Spark (Diagnostic) ────────────────────────────────────────────────────
-rm -f spark.jar
-SPARK_URL=$(get_modrinth_url "spark" "$MC_VERSION" || true)
-download "Spark" "$SPARK_URL" "spark.jar" || true
+# ── 6. Spark (Diagnostic) ────────────────────────────────────────────────────
+download "Spark" "$(get_modrinth_url "spark" "$MC_VERSION")" "spark.jar"
 
 # ── Cleanup ──────────────────────────────────────────────────────────────────
+cd "$MODS_DIR"
+rm -f viafabric.jar viaversion.jar viabackwards.jar geyser-fabric.jar floodgate-fabric.jar
 rm -f viafabric-mc*.jar viafabricplus-*.jar
 
 echo ""
