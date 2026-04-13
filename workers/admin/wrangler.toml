@@ -20,6 +20,6 @@ GITHUB_BRANCH = "main"
 
 # ── Custom domain (uncomment after first deploy) ──────────────────────────────
 [[routes]]
-pattern       = "admin.pakanonymous.org/*"
+pattern       = "admin.pakanonymous.org"
 zone_name     = "pakanonymous.org"
 custom_domain = true

@@ -10,6 +10,6 @@ BEDROCK_PORT = "19132"
 # ── Custom domain ─────────────────────────────────────────────────────────────
 # Requires pakanonymous.org to be on Cloudflare. Uncomment after deploying once.
 [[routes]]
-pattern       = "status.pakanonymous.org/*"
+pattern       = "status.pakanonymous.org"
 zone_name     = "pakanonymous.org"
 custom_domain = true
