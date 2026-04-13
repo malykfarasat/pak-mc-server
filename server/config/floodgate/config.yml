@@ -1,0 +1,33 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# PAK MC SERVER — Floodgate configuration
+# Allows Bedrock players to authenticate without needing a Java account.
+# Docs: https://wiki.geysermc.org/floodgate/setup/
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Prefix added to Bedrock player names so they don't clash with Java names.
+# e.g. a Bedrock player "Steve" shows up in Java as ".Steve"
+username-prefix: "."
+
+# Replace spaces in Bedrock usernames with underscores (Java doesn't allow spaces).
+replace-spaces: true
+
+# Authentication type - "online" means Floodgate verifies with Xbox Live.
+default-locale: system
+
+disconnect:
+  invalid-key: "Please connect through the official Geyser server."
+  invalid-arguments-length: "Expected {0} arguments, got {1}. Is your proxy up to date?"
+
+player-link:
+  enabled: true
+  require-link: false
+  allow-linking: true
+  type: sqlite
+  config: ""
+
+metrics:
+  enabled: false
+  uuid: generateduuid
+
+# Don't touch this.
+config-version: 3

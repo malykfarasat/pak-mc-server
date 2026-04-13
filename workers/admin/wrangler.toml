@@ -1,0 +1,25 @@
+name = "pak-mc-admin"
+main = "src/index.js"
+compatibility_date = "2024-11-01"
+
+# ── Public env vars (fine to commit) ─────────────────────────────────────────
+[vars]
+ALLOWED_EMAIL = "malikmuhammadfarasatali@gmail.com"
+MC_HOST       = "mc.pakanonymous.org"
+BEDROCK_PORT  = "19132"
+GITHUB_OWNER  = "malykfarasat"
+GITHUB_REPO   = "pak-mc-server"
+GITHUB_BRANCH = "main"
+
+# ── Secrets (set via wrangler secret put, never in this file) ─────────────────
+# Required secrets:
+#   GOOGLE_CLIENT_ID      ← from Google Cloud Console OAuth credentials
+#   GOOGLE_CLIENT_SECRET  ← from Google Cloud Console OAuth credentials
+#   SESSION_SECRET        ← any random 32+ char string (openssl rand -hex 32)
+#   GITHUB_PAT            ← GitHub fine-grained PAT with actions:write
+
+# ── Custom domain (uncomment after first deploy) ──────────────────────────────
+[[routes]]
+pattern       = "admin.pakanonymous.org/*"
+zone_name     = "pakanonymous.org"
+custom_domain = true

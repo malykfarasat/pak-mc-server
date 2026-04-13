@@ -1,0 +1,74 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# PAK MC SERVER — Geyser configuration
+# Lets Bedrock Edition players (Xbox, PlayStation, Switch, Mobile, Win10) join.
+# Docs: https://wiki.geysermc.org/geyser/setup/
+# ─────────────────────────────────────────────────────────────────────────────
+
+bedrock:
+  # The address Bedrock clients will connect to. 0.0.0.0 binds all interfaces.
+  address: 0.0.0.0
+  port: 19132
+  clone-remote-port: false
+  motd1: "PAK MC SERVER"
+  motd2: "We Will Rise Again"
+  server-name: "PAK MC"
+  compression-level: 6
+  enable-proxy-protocol: false
+
+remote:
+  # This is the Java server Geyser connects to (itself, since it's a mod).
+  address: auto
+  port: 25565
+  auth-type: floodgate
+  allow-password-authentication: true
+  use-proxy-protocol: false
+  forward-hostname: false
+
+# Save last 3 Bedrock skins per player for Java users to see
+saved-user-logins: []
+
+floodgate-key-file: key.pem
+pending-authentication-timeout: 120
+
+command-suggestions: true
+passthrough-motd: false
+passthrough-player-counts: false
+passthrough-protocol-name: false
+
+# Resource packs served automatically to Bedrock players
+legacy-ping-passthrough: false
+ping-passthrough-interval: 3
+forward-player-ping: false
+
+max-players: 20
+debug-mode: false
+
+show-cooldown: title
+show-coordinates: true
+disable-bedrock-scaffolding: false
+emote-offhand-workaround: "disabled"
+
+cache-images: 0
+allow-custom-skulls: true
+max-visible-custom-skulls: 128
+custom-skull-render-distance: 32
+add-non-bedrock-items: true
+above-bedrock-nether-building: true
+force-resource-packs: true
+xbox-achievements-enabled: false
+log-player-ip-addresses: true
+notify-on-new-bedrock-update: true
+
+unusable-space-block: minecraft:barrier
+
+metrics:
+  enabled: false
+  uuid: generateduuid
+
+scoreboard-packet-threshold: 20
+enable-proxy-connections: false
+mtu: 1400
+use-direct-connection: true
+disable-compression: false
+
+config-version: 4

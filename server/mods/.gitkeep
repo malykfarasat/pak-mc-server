@@ -1,0 +1,2 @@
+# Mods are auto-installed by scripts/install-mods.sh when the workflow runs.
+# You can also drop extra server-side .jar files in this folder and commit them.

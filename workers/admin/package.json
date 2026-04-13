@@ -1,0 +1,16 @@
+{
+  "name": "pak-mc-admin",
+  "version": "1.0.0",
+  "description": "PAK MC SERVER admin panel with Google OAuth (Cloudflare Worker)",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "tail": "wrangler tail",
+    "secrets": "echo 'Set secrets with: wrangler secret put GOOGLE_CLIENT_ID (etc)'"
+  },
+  "devDependencies": {
+    "wrangler": "^3.90.0"
+  }
+}

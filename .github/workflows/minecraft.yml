@@ -1,0 +1,210 @@
+name: 🎮 PAK MC SERVER
+
+on:
+  workflow_dispatch:
+    inputs:
+      memory:
+        description: "RAM to allocate to the JVM"
+        required: false
+        default: "5G"
+        type: choice
+        options: ["3G", "4G", "5G", "6G"]
+      duration:
+        description: "Max session length in minutes (max 350)"
+        required: false
+        default: "340"
+      motd:
+        description: "Custom MOTD (leave blank for default)"
+        required: false
+        default: ""
+
+concurrency:
+  group: pak-mc-server
+  cancel-in-progress: false
+
+jobs:
+  run-server:
+    name: Run Minecraft Server
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+
+    env:
+      MC_VERSION: "1.21.1"
+      FABRIC_LOADER_VERSION: "0.16.9"
+      FABRIC_INSTALLER_VERSION: "1.0.1"
+
+    steps:
+      # ── 1. Checkout ───────────────────────────────────────────────────────
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # ── 2. Print session info ─────────────────────────────────────────────
+      - name: Session info
+        run: |
+          echo "════════════════════════════════════════════════════"
+          echo "🎮 PAK MC SERVER — starting session"
+          echo "    Minecraft: $MC_VERSION (Fabric)"
+          echo "    RAM:       ${{ github.event.inputs.memory || '5G' }}"
+          echo "    Max time:  ${{ github.event.inputs.duration || '340' }} min"
+          echo "    Run:       #${{ github.run_number }}"
+          echo "════════════════════════════════════════════════════"
+
+      # ── 3. Java 21 ─────────────────────────────────────────────────────────
+      - name: Set up Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      # ── 4. Download Fabric server JAR ──────────────────────────────────────
+      - name: Download Fabric server
+        working-directory: server
+        run: |
+          echo "⬇️  Downloading Fabric server for MC $MC_VERSION..."
+          URL="https://meta.fabricmc.net/v2/versions/loader/${MC_VERSION}/${FABRIC_LOADER_VERSION}/${FABRIC_INSTALLER_VERSION}/server/jar"
+          curl -fsSL "$URL" -o fabric-server.jar
+          ls -lh fabric-server.jar
+
+      # ── 5. Install mods ────────────────────────────────────────────────────
+      - name: Install server mods
+        env:
+          MC_VERSION: ${{ env.MC_VERSION }}
+        run: |
+          chmod +x scripts/install-mods.sh
+          ./scripts/install-mods.sh
+
+      # ── 6. Accept EULA ─────────────────────────────────────────────────────
+      - name: Accept EULA
+        run: echo "eula=true" > server/eula.txt
+
+      # ── 7. Apply custom MOTD if provided ───────────────────────────────────
+      - name: Apply custom MOTD
+        if: github.event.inputs.motd != ''
+        run: |
+          sed -i "s|^motd=.*|motd=${{ github.event.inputs.motd }}|" server/server.properties
+
+      # ── 8. Set RCON password from secret ───────────────────────────────────
+      - name: Configure RCON
+        env:
+          RCON_PASSWORD: ${{ secrets.RCON_PASSWORD }}
+        run: |
+          if [ -n "$RCON_PASSWORD" ]; then
+            sed -i "s|^rcon.password=.*|rcon.password=$RCON_PASSWORD|" server/server.properties
+            echo "✅ RCON password set from secret"
+          else
+            # Generate a random one so RCON isn't left with default password
+            RANDOM_PW=$(openssl rand -hex 16)
+            sed -i "s|^rcon.password=.*|rcon.password=$RANDOM_PW|" server/server.properties
+            echo "::notice::RCON password randomized (set RCON_PASSWORD secret for persistence)"
+          fi
+
+      # ── 9. Restore world from cache ────────────────────────────────────────
+      - name: Restore world save from cache
+        id: cache-world
+        uses: actions/cache@v4
+        with:
+          path: server/world
+          key: pak-mc-world-${{ github.run_id }}
+          restore-keys: |
+            pak-mc-world-
+
+      - name: Report world status
+        run: |
+          if [ -d server/world ] && [ -n "$(ls -A server/world 2>/dev/null)" ]; then
+            echo "✅ World restored from previous session ($(du -sh server/world | cut -f1))"
+          else
+            echo "🆕 Fresh world — no previous save found"
+          fi
+
+      # ── 10. Install playit.gg agent (provides tunnel with Java + Bedrock) ──
+      - name: Install playit.gg agent
+        run: |
+          echo "⬇️  Downloading playit agent..."
+          curl -fsSL -o playit \
+            "https://github.com/playit-cloud/playit-agent/releases/download/v0.15.26/playit-linux-amd64"
+          chmod +x playit
+          ./playit version
+
+      # ── 11. Start playit tunnel ────────────────────────────────────────────
+      - name: Start playit tunnel
+        env:
+          PLAYIT_SECRET: ${{ secrets.PLAYIT_SECRET_KEY }}
+        run: |
+          if [ -z "$PLAYIT_SECRET" ]; then
+            echo "::warning::No PLAYIT_SECRET_KEY secret — starting playit in guest mode"
+            echo "   Claim URL will appear in the log below — visit it to link tunnels:"
+            nohup ./playit -s --stdout > playit.log 2>&1 &
+          else
+            echo "🔒 Starting playit with agent secret..."
+            nohup ./playit -s --secret "$PLAYIT_SECRET" --stdout > playit.log 2>&1 &
+          fi
+          sleep 6
+          echo "────── playit.log ──────"
+          cat playit.log || true
+          echo "────────────────────────"
+
+      # ── 12. Schedule graceful shutdown ─────────────────────────────────────
+      - name: Schedule graceful shutdown
+        env:
+          DURATION_MIN: ${{ github.event.inputs.duration || '340' }}
+        run: |
+          (
+            sleep $((DURATION_MIN * 60))
+            echo "⏰ Duration limit reached — sending /stop to server"
+            # Send stop via RCON if available, otherwise kill gracefully
+            pkill -SIGTERM -f "fabric-server.jar" || true
+          ) &
+          echo "Shutdown timer armed: $DURATION_MIN min"
+
+      # ── 13. Start the Minecraft server ─────────────────────────────────────
+      - name: Start Minecraft server
+        working-directory: server
+        env:
+          MEMORY: ${{ github.event.inputs.memory || '5G' }}
+        run: |
+          echo "🚀 Launching server with ${MEMORY} RAM"
+          echo "════════════════════════════════════════════════════"
+          java -Xmx${MEMORY} -Xms2G \
+            -XX:+UseG1GC \
+            -XX:+ParallelRefProcEnabled \
+            -XX:MaxGCPauseMillis=200 \
+            -XX:+UnlockExperimentalVMOptions \
+            -XX:+DisableExplicitGC \
+            -XX:+AlwaysPreTouch \
+            -XX:G1NewSizePercent=30 \
+            -XX:G1MaxNewSizePercent=40 \
+            -XX:G1HeapRegionSize=8M \
+            -XX:G1ReservePercent=20 \
+            -XX:G1HeapWastePercent=5 \
+            -XX:G1MixedGCCountTarget=4 \
+            -XX:InitiatingHeapOccupancyPercent=15 \
+            -XX:G1MixedGCLiveThresholdPercent=90 \
+            -XX:G1RSetUpdatingPauseTimePercent=5 \
+            -XX:SurvivorRatio=32 \
+            -XX:+PerfDisableSharedMem \
+            -XX:MaxTenuringThreshold=1 \
+            -Dusing.aikars.flags=https://mcflags.emc.gs \
+            -Daikars.new.flags=true \
+            -jar fabric-server.jar nogui
+
+      # ── 14. Upload world save as artifact ──────────────────────────────────
+      - name: Upload world backup
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: world-backup-${{ github.run_number }}
+          path: |
+            server/world/
+            server/logs/
+          retention-days: 30
+          if-no-files-found: warn
+
+      # ── 15. Upload playit log for debugging ────────────────────────────────
+      - name: Upload playit log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playit-log-${{ github.run_number }}
+          path: playit.log
+          retention-days: 7
+          if-no-files-found: ignore

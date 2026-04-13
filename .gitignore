@@ -1,0 +1,72 @@
+# ── Minecraft runtime files ──────────────────────────────────────────────────
+server/world/
+server/world_nether/
+server/world_the_end/
+server/logs/
+server/crash-reports/
+server/debug/
+server/fabric-server.jar
+server/eula.txt
+server/usercache.json
+server/banned-ips.json
+server/banned-players.json
+server/.fabric/
+server/libraries/
+server/versions/
+server/cache/
+
+# Auto-installed mods (downloaded fresh every run)
+server/mods/fabric-api.jar
+server/mods/geyser-fabric.jar
+server/mods/floodgate-fabric.jar
+server/mods/viafabric.jar
+server/mods/viafabricplus.jar
+server/mods/voicechat.jar
+server/mods/lithium.jar
+server/mods/ferrite-core.jar
+server/mods/krypton.jar
+server/mods/spark.jar
+
+# Geyser key file (generated on first run)
+server/config/geyser/key.pem
+server/config/geyser/packs/
+server/config/geyser/public-key.pem
+server/config/floodgate/key.pem
+
+# Player data for Geyser/Floodgate
+server/config/floodgate/*.db
+
+# ── Node / wrangler ──────────────────────────────────────────────────────────
+node_modules/
+.wrangler/
+.dev.vars
+workers/*/dist/
+
+# ── Secrets (should never exist locally but just in case) ────────────────────
+.env
+.env.local
+secrets.json
+*.pem
+!server/config/geyser/key.pem.example
+
+# ── OS ───────────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ── Editor ───────────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ── Temp ─────────────────────────────────────────────────────────────────────
+cloudflared.deb
+playit
+playit.log
+*.tmp
+*.log
+temp.json
+
+# ── Bulk Data ────────────────────────────────────────────────────────────────
+BBS-Minecraft-World/

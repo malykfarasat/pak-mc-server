@@ -1,0 +1,37 @@
+name: 🛑 Stop Minecraft Server
+
+# Cancels the currently running PAK MC SERVER workflow.
+# Triggered by the admin panel or manually.
+
+on:
+  workflow_dispatch:
+
+jobs:
+  stop:
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+    steps:
+      - name: Cancel running server workflow
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "🔍 Looking for active PAK MC SERVER runs..."
+          RUN_IDS=$(gh run list \
+            --repo "${{ github.repository }}" \
+            --workflow "minecraft.yml" \
+            --status "in_progress" \
+            --json databaseId \
+            --jq '.[].databaseId')
+
+          if [ -z "$RUN_IDS" ]; then
+            echo "ℹ️  No running server sessions found"
+            exit 0
+          fi
+
+          for id in $RUN_IDS; do
+            echo "🛑 Cancelling run #$id"
+            gh run cancel "$id" --repo "${{ github.repository }}"
+          done
+
+          echo "✅ Stop signal sent"
