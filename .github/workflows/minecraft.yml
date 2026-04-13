@@ -116,22 +116,22 @@ jobs:
       # ── 10. Install playit.gg agent ────────────────────────────────────────
       - name: Install playit.gg agent
         run: |
-          curl -SsL https://playit-cloud.github.io/ppa/key.gpg | gpg --dearmor | sudo tee /etc/apt/trusted.gpg.d/playit.gpg > /dev/null
-          echo "deb [signed-by=/etc/apt/trusted.gpg.d/playit.gpg] https://playit-cloud.github.io/ppa/data-ppa ./" | sudo tee /etc/apt/sources.list.d/playit-cloud.list
-          sudo apt update
-          sudo apt install playit -y
+          echo "⬇️  Downloading playit.gg agent..."
+          curl -SsL https://github.com/playit-gg/playit-agent/releases/latest/download/playit-linux-amd64 -o playit
+          chmod +x playit
 
       # ── 11. Start playit tunnel ────────────────────────────────────────────
       - name: Start playit tunnel
+        id: playit-tunnel
         env:
           PLAYIT_SECRET: ${{ secrets.PLAYIT_SECRET_KEY }}
         run: |
           if [ -z "$PLAYIT_SECRET" ]; then
             echo "::warning::No PLAYIT_SECRET_KEY secret — starting playit in guest mode"
-            nohup playit -s --stdout > playit.log 2>&1 &
+            nohup ./playit -s --stdout > playit.log 2>&1 &
           else
             echo "🔒 Starting playit with agent secret..."
-            nohup playit -s --secret "$PLAYIT_SECRET" --stdout > playit.log 2>&1 &
+            nohup ./playit -s --secret "$PLAYIT_SECRET" --stdout > playit.log 2>&1 &
           fi
           sleep 6
           echo "────── playit.log ──────"
