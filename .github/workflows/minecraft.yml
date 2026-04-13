@@ -131,6 +131,29 @@ jobs:
           cat playit.log || true
           echo "────────────────────────"
 
+      # ── 11.5 Display Connection Info ───────────────────────────────────────
+      - name: Display Connection Info
+        run: |
+          echo "⌛ Waiting for connection IP..."
+          sleep 10
+          IP=$(grep -oE '[a-z0-9.-]+\.ply\.gg:[0-9]+' playit.log | head -n 1)
+          if [ -z "$IP" ]; then
+            IP=$(grep -oE '[a-z0-9.-]+\.at\.ply\.gg' playit.log | head -n 1)
+          fi
+          
+          if [ -n "$IP" ]; then
+            echo "════════════════════════════════════════════════════"
+            echo "   🔗 SERVER CONNECTION INFO (TLauncher & Java)     "
+            echo "   IP: $IP                                          "
+            echo "════════════════════════════════════════════════════"
+            echo "   🎮 BEDROCK CONNECTION INFO                       "
+            echo "   Address: ${IP%:*}                                "
+            echo "   Port: ${IP#*:}                                   "
+            echo "════════════════════════════════════════════════════"
+          else
+            echo "⚠️ Could not find IP in playit log. Check playit.log artifact."
+          fi
+
       # ── 12. Schedule graceful shutdown ─────────────────────────────────────
       - name: Schedule graceful shutdown
         env:
