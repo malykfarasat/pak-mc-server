@@ -4,29 +4,22 @@ on:
   workflow_dispatch:
     inputs:
       memory:
-        description: "RAM to allocate to the JVM"
+        description: "RAM Allocation (e.g. 5G, 8G)"
         required: false
-        default: "5G"
-        type: choice
-        options: ["3G", "4G", "5G", "6G"]
+        default: "6G"
       duration:
-        description: "Max session length in minutes (max 350)"
+        description: "Run Duration (minutes)"
         required: false
         default: "340"
       motd:
-        description: "Custom MOTD (leave blank for default)"
+        description: "Server Message (MOTD)"
         required: false
-        default: ""
-
-concurrency:
-  group: pak-mc-server
-  cancel-in-progress: false
+        default: "PAK MC SERVER — Now in Root Mode"
 
 jobs:
-  run-server:
-    name: Run Minecraft Server
+  minecraft:
+    name: 🎮 PAK MC SERVER
     runs-on: ubuntu-latest
-    timeout-minutes: 350
 
     env:
       MC_VERSION: "1.21.1"
@@ -34,19 +27,15 @@ jobs:
       FABRIC_INSTALLER_VERSION: "1.0.1"
 
     steps:
-      # ── 1. Checkout ───────────────────────────────────────────────────────
+      # ── 1. Checkout Repository ─────────────────────────────────────────────
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # ── 2. Print session info ─────────────────────────────────────────────
-      - name: Session info
+      # ── 2. Greeting & Setup ────────────────────────────────────────────────
+      - name: Welcome message
         run: |
           echo "════════════════════════════════════════════════════"
-          echo "🎮 PAK MC SERVER — starting session"
-          echo "    Minecraft: $MC_VERSION (Fabric)"
-          echo "    RAM:       ${{ github.event.inputs.memory || '5G' }}"
-          echo "    Max time:  ${{ github.event.inputs.duration || '340' }} min"
-          echo "    Run:       #${{ github.run_number }}"
+          echo "   🇵🇰  PAK MC SERVER — INFRASTRUCTURE STARTUP  🇵🇰   "
           echo "════════════════════════════════════════════════════"
 
       # ── 3. Java 21 ─────────────────────────────────────────────────────────
@@ -58,7 +47,6 @@ jobs:
 
       # ── 4. Download Fabric server JAR ──────────────────────────────────────
       - name: Download Fabric server
-        working-directory: server
         run: |
           echo "⬇️  Downloading Fabric server for MC $MC_VERSION..."
           URL="https://meta.fabricmc.net/v2/versions/loader/${MC_VERSION}/${FABRIC_LOADER_VERSION}/${FABRIC_INSTALLER_VERSION}/server/jar"
@@ -75,37 +63,36 @@ jobs:
 
       # ── 6. Accept EULA ─────────────────────────────────────────────────────
       - name: Accept EULA
-        run: echo "eula=true" > server/eula.txt
+        run: echo "eula=true" > eula.txt
 
       # ── 7. Apply custom MOTD if provided ───────────────────────────────────
       - name: Apply custom MOTD
         if: github.event.inputs.motd != ''
         run: |
-          sed -i "s|^motd=.*|motd=${{ github.event.inputs.motd }}|" server/server.properties
+          sed -i "s|^motd=.*|motd=${{ github.event.inputs.motd }}|" server.properties
 
-      # ── 8. Set RCON password from secret ───────────────────────────────────
+      # ── 8. Configure RCON ──────────────────────────────────────────────────
       - name: Configure RCON
         env:
           RCON_PASSWORD: ${{ secrets.RCON_PASSWORD }}
         run: |
           if [ -n "$RCON_PASSWORD" ]; then
-            sed -i "s|^rcon.password=.*|rcon.password=$RCON_PASSWORD|" server/server.properties
+            sed -i "s|^rcon.password=.*|rcon.password=$RCON_PASSWORD|" server.properties
             echo "✅ RCON password set from secret"
           else
-            # Generate a random one so RCON isn't left with default password
             RANDOM_PW=$(openssl rand -hex 16)
-            sed -i "s|^rcon.password=.*|rcon.password=$RANDOM_PW|" server/server.properties
-            echo "::notice::RCON password randomized (set RCON_PASSWORD secret for persistence)"
+            sed -i "s|^rcon.password=.*|rcon.password=$RANDOM_PW|" server.properties
+            echo "::notice::RCON password randomized"
           fi
 
-      # ── 9. Restore world and config from cache ────────────────────────────
+      # ── 9. Restore persistence from cache ──────────────────────────────────
       - name: Restore persistence from cache
         id: cache-persistence
         uses: actions/cache@v4
         with:
           path: |
-            server/world
-            server/config
+            world
+            config
           key: pak-mc-persistence-${{ github.run_id }}
           restore-keys: |
             pak-mc-persistence-
@@ -113,27 +100,26 @@ jobs:
       - name: Report persistence status
         run: |
           REPORT=""
-          if [ -d server/world ] && [ -n "$(ls -A server/world 2>/dev/null)" ]; then
-            REPORT="✅ World restored ($(du -sh server/world | cut -f1))"
+          if [ -d world ] && [ -n "$(ls -A world 2>/dev/null)" ]; then
+            REPORT="✅ World restored ($(du -sh world | cut -f1))"
           else
             REPORT="🆕 Fresh world"
           fi
           
-          if [ -d server/config ] && [ -n "$(ls -A server/config 2>/dev/null)" ]; then
-            REPORT="$REPORT | ✅ Config restored ($(du -sh server/config | cut -f1))"
+          if [ -d config ] && [ -n "$(ls -A config 2>/dev/null)" ]; then
+            REPORT="$REPORT | ✅ Config restored ($(du -sh config | cut -f1))"
           else
             REPORT="$REPORT | 🆕 Fresh config"
           fi
           echo "$REPORT"
 
-      # ── 10. Install playit.gg agent (provides tunnel with Java + Bedrock) ──
+      # ── 10. Install playit.gg agent ────────────────────────────────────────
       - name: Install playit.gg agent
         run: |
-          echo "⬇️  Downloading playit agent..."
-          curl -fsSL -o playit \
-            "https://github.com/playit-cloud/playit-agent/releases/download/v0.15.26/playit-linux-amd64"
-          chmod +x playit
-          ./playit version
+          curl -SsL https://playit-cloud.github.io/ppa/key.gpg | gpg --dearmor | sudo tee /etc/apt/trusted.gpg.d/playit.gpg > /dev/null
+          echo "deb [signed-by=/etc/apt/trusted.gpg.d/playit.gpg] https://playit-cloud.github.io/ppa/data-ppa ./" | sudo tee /etc/apt/sources.list.d/playit-cloud.list
+          sudo apt update
+          sudo apt install playit -y
 
       # ── 11. Start playit tunnel ────────────────────────────────────────────
       - name: Start playit tunnel
@@ -142,11 +128,10 @@ jobs:
         run: |
           if [ -z "$PLAYIT_SECRET" ]; then
             echo "::warning::No PLAYIT_SECRET_KEY secret — starting playit in guest mode"
-            echo "   Claim URL will appear in the log below — visit it to link tunnels:"
-            nohup ./playit -s --stdout > playit.log 2>&1 &
+            nohup playit -s --stdout > playit.log 2>&1 &
           else
             echo "🔒 Starting playit with agent secret..."
-            nohup ./playit -s --secret "$PLAYIT_SECRET" --stdout > playit.log 2>&1 &
+            nohup playit -s --secret "$PLAYIT_SECRET" --stdout > playit.log 2>&1 &
           fi
           sleep 6
           echo "────── playit.log ──────"
@@ -161,18 +146,16 @@ jobs:
           (
             sleep $((DURATION_MIN * 60))
             echo "⏰ Duration limit reached — sending /stop to server"
-            # Send stop via RCON if available, otherwise kill gracefully
             pkill -SIGTERM -f "fabric-server.jar" || true
           ) &
           echo "Shutdown timer armed: $DURATION_MIN min"
 
       # ── 13. Start the Minecraft server ─────────────────────────────────────
       - name: Start Minecraft server
-        working-directory: server
         env:
-          MEMORY: ${{ github.event.inputs.memory || '5G' }}
+          MEMORY: ${{ github.event.inputs.memory || '6G' }}
         run: |
-          echo "🚀 Launching server with ${MEMORY} RAM"
+          echo "🚀 Launching server with ${MEMORY} RAM (Root Mode)"
           echo "════════════════════════════════════════════════════"
           java -Xmx${MEMORY} -Xms2G \
             -XX:+UseG1GC \
@@ -204,8 +187,8 @@ jobs:
         with:
           name: world-backup-${{ github.run_number }}
           path: |
-            server/world/
-            server/logs/
+            world/
+            logs/
           retention-days: 30
           if-no-files-found: warn
 

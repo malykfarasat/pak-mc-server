@@ -1,40 +1,30 @@
 # ── Minecraft runtime files ──────────────────────────────────────────────────
-server/world/
-server/world_nether/
-server/world_the_end/
-server/logs/
-server/crash-reports/
-server/debug/
-server/fabric-server.jar
-server/eula.txt
-server/usercache.json
-server/banned-ips.json
-server/banned-players.json
-server/.fabric/
-server/libraries/
-server/versions/
-server/cache/
+world/
+world_nether/
+world_the_end/
+logs/
+crash-reports/
+debug/
+fabric-server.jar
+eula.txt
+usercache.json
+banned-ips.json
+banned-players.json
+.fabric/
+libraries/
+versions/
+cache/
 
 # Auto-installed mods (downloaded fresh every run)
-server/mods/fabric-api.jar
-server/mods/geyser-fabric.jar
-server/mods/floodgate-fabric.jar
-server/mods/viafabric.jar
-server/mods/viafabricplus.jar
-server/mods/voicechat.jar
-server/mods/lithium.jar
-server/mods/ferrite-core.jar
-server/mods/krypton.jar
-server/mods/spark.jar
+mods/*.jar
 
-# Geyser key file (generated on first run)
-server/config/geyser/key.pem
-server/config/geyser/packs/
-server/config/geyser/public-key.pem
-server/config/floodgate/key.pem
-
-# Player data for Geyser/Floodgate
-server/config/floodgate/*.db
+# Config files with keys / secrets
+config/geyser/key.pem
+config/geyser/packs/
+config/geyser/public-key.pem
+config/floodgate/key.pem
+config/floodgate/public-key.pem
+config/floodgate/*.db
 
 # ── Node / wrangler ──────────────────────────────────────────────────────────
 node_modules/
@@ -42,12 +32,12 @@ node_modules/
 .dev.vars
 workers/*/dist/
 
-# ── Secrets (should never exist locally but just in case) ────────────────────
+# ── Secrets ──────────────────────────────────────────────────────────────────
 .env
 .env.local
 secrets.json
 *.pem
-!server/config/geyser/key.pem.example
+!config/floodgate/key.pem.example
 
 # ── OS ───────────────────────────────────────────────────────────────────────
 .DS_Store
@@ -67,6 +57,7 @@ playit.log
 *.tmp
 *.log
 temp.json
+run_log*.txt
 
 # ── Bulk Data ────────────────────────────────────────────────────────────────
 BBS-Minecraft-World/

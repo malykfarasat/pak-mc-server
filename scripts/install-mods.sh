@@ -1,17 +1,17 @@
 #!/usr/bin/env bash
 # ─────────────────────────────────────────────────────────────────────────────
 # PAK MC SERVER — Server mod installer
-# Downloads all server-side mods needed for cross-version + Bedrock support.
+# Standardized for Root directory execution and ViaFabricPlus consolidation.
 # ─────────────────────────────────────────────────────────────────────────────
 set -euo pipefail
 
 MC_VERSION="${MC_VERSION:-1.21.1}"
-MODS_DIR="$(cd "$(dirname "$0")/.." && pwd)/server/mods"
+MODS_DIR="$(cd "$(dirname "$0")/.." && pwd)/mods"
 
 mkdir -p "$MODS_DIR"
 cd "$MODS_DIR"
 
-echo "📦 Installing PAK MC SERVER mods for Minecraft $MC_VERSION"
+echo "📦 Installing PAK MC SERVER mods for Minecraft $MC_VERSION (Root Mode)"
 echo "    Target directory: $MODS_DIR"
 
 # Ensure config directories exist to prevent mod initialization crashes
@@ -32,7 +32,7 @@ try:
         print(data[0]['files'][0]['url'])
     else:
         sys.exit(1)
-except Exception as e:
+except Exception:
     sys.exit(1)
 "
 }
@@ -57,62 +57,49 @@ download() {
   fi
 }
 
-# ── 1. Fabric API (required by nearly all Fabric mods) ───────────────────────
+# ── 1. Fabric API (required) ─────────────────────────────────────────────────
 rm -f fabric-api.jar
 FABRIC_API_URL=$(get_modrinth_url "fabric-api" "$MC_VERSION" || true)
 download "Fabric API" "$FABRIC_API_URL" "fabric-api.jar" || true
 
-# ── 2. Geyser-Fabric (Bedrock Edition bridge) ─────────────────────────────────
+# ── 2. Geyser-Fabric (Bedrock Bridge) ────────────────────────────────────────
 rm -f geyser-fabric.jar
 GEYSER_URL=$(get_modrinth_url "geyser" "$MC_VERSION" || true)
 download "Geyser-Fabric" "$GEYSER_URL" "geyser-fabric.jar" || true
 
-# ── 3. Floodgate-Fabric (Bedrock player authentication) ──────────────────────
+# ── 3. Floodgate-Fabric (Bedrock Auth) ───────────────────────────────────────
 rm -f floodgate-fabric.jar
 FLOODGATE_URL=$(get_modrinth_url "floodgate" "$MC_VERSION" || true)
 download "Floodgate-Fabric" "$FLOODGATE_URL" "floodgate-fabric.jar" || true
 
-# ── 4. Cross-Version Support (Allows older clients to join) ──────────────────
+# ── 4. ViaFabricPlus (All-in-one Cross-version support) ──────────────────────
+# Note: This replaces ViaVersion, ViaBackwards, and ViaFabric.
 rm -f via*.jar
-# ViaFabric: The core implementation for Fabric
-VIAFABRIC_URL=$(get_modrinth_url "viafabric" "$MC_VERSION" || true)
-download "ViaFabric" "$VIAFABRIC_URL" "viafabric.jar" || true
+VIA_PLUS_URL=$(get_modrinth_url "viafabricplus" "$MC_VERSION" || true)
+download "ViaFabricPlus" "$VIA_PLUS_URL" "viafabricplus.jar" || true
 
-# ViaVersion/ViaBackwards: Bridging plugins for older clients
-VIAVERSION_URL=$(get_modrinth_url "viaversion" "$MC_VERSION" || true)
-download "ViaVersion" "$VIAVERSION_URL" "viaversion.jar" || true
-
-VIABACKWARDS_URL=$(get_modrinth_url "viabackwards" "$MC_VERSION" || true)
-download "ViaBackwards" "$VIABACKWARDS_URL" "viabackwards.jar" || true
-
-# ── 5. Simple Voice Chat (proximity voice) ───────────────────────────────────
+# ── 5. Simple Voice Chat ─────────────────────────────────────────────────────
 rm -f voicechat.jar
 VOICECHAT_URL=$(get_modrinth_url "simple-voice-chat" "$MC_VERSION" || true)
 download "Simple Voice Chat" "$VOICECHAT_URL" "voicechat.jar" || true
 
-# ── 6. Lithium (performance — highly recommended for small runners) ──────────
-rm -f lithium.jar
+# ── 6. Performance & Optimization ────────────────────────────────────────────
+rm -f lithium.jar ferrite-core.jar krypton.jar
 LITHIUM_URL=$(get_modrinth_url "lithium" "$MC_VERSION" || true)
 download "Lithium" "$LITHIUM_URL" "lithium.jar" || true
 
-# ── 7. FerriteCore (memory usage optimization) ───────────────────────────────
-rm -f ferrite-core.jar
 FERRITE_URL=$(get_modrinth_url "ferrite-core" "$MC_VERSION" || true)
 download "FerriteCore" "$FERRITE_URL" "ferrite-core.jar" || true
 
-# ── 8. Krypton (network stack optimization) ──────────────────────────────────
-rm -f krypton.jar
 KRYPTON_URL=$(get_modrinth_url "krypton" "$MC_VERSION" || true)
 download "Krypton" "$KRYPTON_URL" "krypton.jar" || true
 
-# ── 9. Spark (profiling) ─────────────────────────────────────────────────────
+# ── 7. Spark (Diagnostic) ────────────────────────────────────────────────────
 rm -f spark.jar
 SPARK_URL=$(get_modrinth_url "spark" "$MC_VERSION" || true)
 download "Spark" "$SPARK_URL" "spark.jar" || true
 
 # ── Cleanup ──────────────────────────────────────────────────────────────────
-# CRITICAL: ViaFabric downloads "sub-jars" for older versions that cause crashes 
-# on a 1.21.1 server. We MUST delete them.
 rm -f viafabric-mc*.jar viafabricplus-*.jar
 
 echo ""
