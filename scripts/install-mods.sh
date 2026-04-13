@@ -13,7 +13,9 @@ cd "$MODS_DIR"
 
 echo "📦 Installing PAK MC SERVER mods for Minecraft $MC_VERSION"
 echo "    Target directory: $MODS_DIR"
-echo ""
+
+# Ensure config directories exist to prevent mod initialization crashes
+mkdir -p ../config/floodgate ../config/geyser
 
 # ── Helper: fetch latest Fabric-compatible version from Modrinth ──────────────
 get_modrinth_url() {

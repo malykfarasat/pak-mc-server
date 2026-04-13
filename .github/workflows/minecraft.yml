@@ -98,23 +98,33 @@ jobs:
             echo "::notice::RCON password randomized (set RCON_PASSWORD secret for persistence)"
           fi
 
-      # ── 9. Restore world from cache ────────────────────────────────────────
-      - name: Restore world save from cache
-        id: cache-world
+      # ── 9. Restore world and config from cache ────────────────────────────
+      - name: Restore persistence from cache
+        id: cache-persistence
         uses: actions/cache@v4
         with:
-          path: server/world
-          key: pak-mc-world-${{ github.run_id }}
+          path: |
+            server/world
+            server/config
+          key: pak-mc-persistence-${{ github.run_id }}
           restore-keys: |
-            pak-mc-world-
+            pak-mc-persistence-
 
-      - name: Report world status
+      - name: Report persistence status
         run: |
+          REPORT=""
           if [ -d server/world ] && [ -n "$(ls -A server/world 2>/dev/null)" ]; then
-            echo "✅ World restored from previous session ($(du -sh server/world | cut -f1))"
+            REPORT="✅ World restored ($(du -sh server/world | cut -f1))"
           else
-            echo "🆕 Fresh world — no previous save found"
+            REPORT="🆕 Fresh world"
           fi
+          
+          if [ -d server/config ] && [ -n "$(ls -A server/config 2>/dev/null)" ]; then
+            REPORT="$REPORT | ✅ Config restored ($(du -sh server/config | cut -f1))"
+          else
+            REPORT="$REPORT | 🆕 Fresh config"
+          fi
+          echo "$REPORT"
 
       # ── 10. Install playit.gg agent (provides tunnel with Java + Bedrock) ──
       - name: Install playit.gg agent
