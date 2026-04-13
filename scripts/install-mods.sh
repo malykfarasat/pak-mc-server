@@ -72,11 +72,14 @@ download "Floodgate-Fabric" "$FLOODGATE_URL" "floodgate-fabric.jar" || true
 
 # ── 4. Cross-Version Support (Allows older clients to join) ──────────────────
 rm -f via*.jar
-# ViaVersion: Required for protocol translation
+# ViaFabric: The core implementation for Fabric
+VIAFABRIC_URL=$(get_modrinth_url "viafabric" "$MC_VERSION" || true)
+download "ViaFabric" "$VIAFABRIC_URL" "viafabric.jar" || true
+
+# ViaVersion/ViaBackwards: Bridging plugins for older clients
 VIAVERSION_URL=$(get_modrinth_url "viaversion" "$MC_VERSION" || true)
 download "ViaVersion" "$VIAVERSION_URL" "viaversion.jar" || true
 
-# ViaBackwards: Allows older clients to join newer servers
 VIABACKWARDS_URL=$(get_modrinth_url "viabackwards" "$MC_VERSION" || true)
 download "ViaBackwards" "$VIABACKWARDS_URL" "viabackwards.jar" || true
 
@@ -106,6 +109,8 @@ SPARK_URL=$(get_modrinth_url "spark" "$MC_VERSION" || true)
 download "Spark" "$SPARK_URL" "spark.jar" || true
 
 # ── Cleanup ──────────────────────────────────────────────────────────────────
+# CRITICAL: ViaFabric downloads "sub-jars" for older versions that cause crashes 
+# on a 1.21.1 server. We MUST delete them.
 rm -f viafabric-mc*.jar viafabricplus-*.jar
 
 echo ""
