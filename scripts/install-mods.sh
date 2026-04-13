@@ -62,28 +62,23 @@ download "Fabric API" "$FABRIC_API_URL" "fabric-api.jar" || true
 
 # ── 2. Geyser-Fabric (Bedrock Edition bridge) ─────────────────────────────────
 rm -f geyser-fabric.jar
-echo "  → Geyser-Fabric"
-if curl -fsSL "https://download.geysermc.org/v2/projects/geyser/versions/1.21.1/builds/latest/downloads/fabric" \
-     -o "geyser-fabric.jar"; then
-  echo "     ✅ $(du -h geyser-fabric.jar | cut -f1) → geyser-fabric.jar"
-else
-  curl -fsSL "https://download.geysermc.org/v2/projects/geyser/versions/latest/builds/latest/downloads/fabric" -o "geyser-fabric.jar"
-fi
+GEYSER_URL=$(get_modrinth_url "geyser" "$MC_VERSION" || true)
+download "Geyser-Fabric" "$GEYSER_URL" "geyser-fabric.jar" || true
 
 # ── 3. Floodgate-Fabric (Bedrock player authentication) ──────────────────────
 rm -f floodgate-fabric.jar
-echo "  → Floodgate-Fabric"
-if curl -fsSL "https://download.geysermc.org/v2/projects/floodgate/versions/1.21.1/builds/latest/downloads/fabric" \
-     -o "floodgate-fabric.jar"; then
-  echo "     ✅ $(du -h floodgate-fabric.jar | cut -f1) → floodgate-fabric.jar"
-else
-  curl -fsSL "https://download.geysermc.org/v2/projects/floodgate/versions/latest/builds/latest/downloads/fabric" -o "floodgate-fabric.jar"
-fi
+FLOODGATE_URL=$(get_modrinth_url "floodgate" "$MC_VERSION" || true)
+download "Floodgate-Fabric" "$FLOODGATE_URL" "floodgate-fabric.jar" || true
 
-# ── 4. ViaFabric (lets any Java version 1.8+ join) ───────────────────────────
-rm -f viafabric.jar viafabricplus.jar viafabric-mc*.jar
-VIAFABRIC_URL=$(get_modrinth_url "viafabric" "$MC_VERSION" || true)
-download "ViaFabric" "$VIAFABRIC_URL" "viafabric.jar" || true
+# ── 4. Cross-Version Support (Allows older clients to join) ──────────────────
+rm -f via*.jar
+# ViaVersion: Required for protocol translation
+VIAVERSION_URL=$(get_modrinth_url "viaversion" "$MC_VERSION" || true)
+download "ViaVersion" "$VIAVERSION_URL" "viaversion.jar" || true
+
+# ViaBackwards: Allows older clients to join newer servers
+VIABACKWARDS_URL=$(get_modrinth_url "viabackwards" "$MC_VERSION" || true)
+download "ViaBackwards" "$VIABACKWARDS_URL" "viabackwards.jar" || true
 
 # ── 5. Simple Voice Chat (proximity voice) ───────────────────────────────────
 rm -f voicechat.jar
