@@ -7,6 +7,9 @@
     {
       "name": "Fabric API",
       "output": "fabric-api.jar",
+      "modrinth_project": "P7dR8mSH",
+      "game_version": "1.21.1",
+      "loader": "fabric",
       "sha256": "",
       "urls": [
         "https://cdn.modrinth.com/data/P7dR8mSH/versions/bxd6fW4x/fabric-api-0.116.6%2B1.21.1.jar"
@@ -31,6 +34,9 @@
     {
       "name": "ViaFabricPlus",
       "output": "viafabricplus.jar",
+      "modrinth_project": "rIC2XJV4",
+      "game_version": "1.21.1",
+      "loader": "fabric",
       "sha256": "",
       "urls": [
         "https://cdn.modrinth.com/data/rIC2XJV4/versions/lXMdA8Qz/ViaFabricPlus-4.1.1.jar"
@@ -39,6 +45,9 @@
     {
       "name": "Simple Voice Chat",
       "output": "voicechat.jar",
+      "modrinth_project": "9eGKb6K1",
+      "game_version": "1.21.1",
+      "loader": "fabric",
       "sha256": "",
       "urls": [
         "https://cdn.modrinth.com/data/9eGKb6K1/versions/Y6v6rTzN/voicechat-fabric-1.21.1-2.5.30.jar"
@@ -47,6 +56,9 @@
     {
       "name": "Lithium",
       "output": "lithium.jar",
+      "modrinth_project": "gvQqBUqZ",
+      "game_version": "1.21.1",
+      "loader": "fabric",
       "sha256": "",
       "urls": [
         "https://cdn.modrinth.com/data/gvQqBUqZ/versions/6udx5eC7/lithium-fabric-mc1.21.1-0.14.7.jar"
@@ -55,6 +67,9 @@
     {
       "name": "FerriteCore",
       "output": "ferrite-core.jar",
+      "modrinth_project": "uXXizFIs",
+      "game_version": "1.21.1",
+      "loader": "fabric",
       "sha256": "",
       "urls": [
         "https://cdn.modrinth.com/data/uXXizFIs/versions/j0M4nATf/ferritecore-7.0.2-fabric.jar"
@@ -63,6 +78,9 @@
     {
       "name": "Krypton",
       "output": "krypton.jar",
+      "modrinth_project": "fQEb0iXm",
+      "game_version": "1.21.1",
+      "loader": "fabric",
       "sha256": "",
       "urls": [
         "https://cdn.modrinth.com/data/fQEb0iXm/versions/F6R7A2QX/krypton-0.2.8.jar"
@@ -71,6 +89,9 @@
     {
       "name": "Spark",
       "output": "spark.jar",
+      "modrinth_project": "l6YH9Als",
+      "game_version": "1.21.1",
+      "loader": "fabric",
       "sha256": "",
       "urls": [
         "https://cdn.modrinth.com/data/l6YH9Als/versions/A9Y4yW3c/spark-1.10.109-fabric.jar"

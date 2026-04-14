@@ -23,6 +23,7 @@ import shutil
 import sys
 import urllib.error
 import urllib.request
+import urllib.parse
 
 lock_file, tmp_dir, mods_dir = sys.argv[1], sys.argv[2], sys.argv[3]
 
@@ -39,6 +40,30 @@ def sha256_of(path):
         for chunk in iter(lambda: f.read(1024 * 1024), b""):
             h.update(chunk)
     return h.hexdigest()
+
+def fetch_modrinth_fallback(mod):
+    project = mod.get("modrinth_project")
+    game_version = mod.get("game_version") or lock.get("minecraft_version")
+    loader = mod.get("loader") or lock.get("loader") or "fabric"
+    if not project or not game_version:
+        return None
+
+    query = urllib.parse.urlencode(
+        {
+            "loaders": json.dumps([loader]),
+            "game_versions": json.dumps([game_version]),
+        }
+    )
+    url = f"https://api.modrinth.com/v2/project/{project}/version?{query}"
+    req = urllib.request.Request(url, headers={"User-Agent": "pak-mc-server-installer/1.0"})
+    with urllib.request.urlopen(req, timeout=45) as r:
+        versions = json.loads(r.read().decode("utf-8"))
+    if not versions:
+        return None
+    files = versions[0].get("files") or []
+    if not files:
+        return None
+    return files[0].get("url")
 
 for mod in mods:
     name = mod["name"]
@@ -66,6 +91,23 @@ for mod in mods:
         except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError) as e:
             last_error = str(e)
             print(f"   failed {url}: {e}")
+
+    if not downloaded:
+        fallback_url = None
+        try:
+            fallback_url = fetch_modrinth_fallback(mod)
+        except Exception as e:
+            print(f"   fallback lookup failed for {name}: {e}")
+
+        if fallback_url:
+            try:
+                req = urllib.request.Request(fallback_url, headers={"User-Agent": "pak-mc-server-installer/1.0"})
+                with urllib.request.urlopen(req, timeout=90) as r, open(temp_target, "wb") as out:
+                    shutil.copyfileobj(r, out)
+                downloaded = True
+                print(f"   downloaded from modrinth fallback {fallback_url}")
+            except Exception as e:
+                last_error = str(e)
 
     if not downloaded:
         raise SystemExit(f"ERROR: could not download {name}. Last error: {last_error}")
