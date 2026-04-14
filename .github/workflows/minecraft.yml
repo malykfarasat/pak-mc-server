@@ -108,8 +108,9 @@ jobs:
       - name: Install playit.gg agent
         run: |
           echo "⬇️  Downloading playit.gg agent..."
-          curl -SsL https://github.com/playit-gg/playit-agent/releases/latest/download/playit-linux-amd64 -o playit
+          curl -fsSL https://github.com/playit-cloud/playit-agent/releases/latest/download/playit-linux-amd64 -o playit
           chmod +x playit
+          ./playit --version || true
 
       # ── 11. Start playit tunnel ────────────────────────────────────────────
       - name: Start playit tunnel
