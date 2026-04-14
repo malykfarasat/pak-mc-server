@@ -18,6 +18,10 @@
     {
       "name": "Geyser Fabric",
       "output": "geyser-fabric.jar",
+      "modrinth_project": "geyser",
+      "game_version": "1.21.1",
+      "loader": "fabric",
+      "prefer_modrinth": true,
       "sha256": "",
       "urls": [
         "https://download.geysermc.org/v2/projects/geyser/versions/latest/builds/latest/downloads/fabric"
@@ -29,6 +33,7 @@
       "modrinth_project": "bWrNNfkb",
       "game_version": "1.21.1",
       "loader": "fabric",
+      "prefer_modrinth": true,
       "sha256": "",
       "urls": [
         "https://download.geysermc.org/v2/projects/floodgate/versions/latest/builds/latest/downloads/fabric"

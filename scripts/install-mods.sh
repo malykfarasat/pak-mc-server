@@ -80,6 +80,15 @@ for mod in mods:
     last_error = ""
 
     print(f"-> {name}")
+    if mod.get("prefer_modrinth"):
+        fallback_url = None
+        try:
+            fallback_url = fetch_modrinth_fallback(mod)
+        except Exception as e:
+            print(f"   fallback lookup failed for {name}: {e}")
+        if fallback_url:
+            urls = [fallback_url] + urls
+
     for url in urls:
         try:
             req = urllib.request.Request(url, headers={"User-Agent": "pak-mc-server-installer/1.0"})
