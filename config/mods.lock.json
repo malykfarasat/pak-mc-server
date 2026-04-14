@@ -26,6 +26,9 @@
     {
       "name": "Floodgate Fabric",
       "output": "floodgate-fabric.jar",
+      "modrinth_project": "bWrNNfkb",
+      "game_version": "1.21.1",
+      "loader": "fabric",
       "sha256": "",
       "urls": [
         "https://download.geysermc.org/v2/projects/floodgate/versions/latest/builds/latest/downloads/fabric"
