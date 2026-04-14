@@ -15,76 +15,84 @@ const JSON_CONTENT_TYPE = "application/json;charset=UTF-8";
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
-    const host = env.MC_HOST || "mc.pakanonymous.org";
-    const bedrockPort = env.BEDROCK_PORT || "19132";
+    const fallbackHost    = env.MC_HOST      || "mc.pakanonymous.org";
+    const fallbackBedrock = env.BEDROCK_PORT || "19132";
+    const ghRepo          = env.GH_REPO      || "malykfarasat/pak-mc-server";
+    const ghToken         = env.GH_TOKEN     || "";
 
     if (url.pathname === "/api/status") {
-      return await jsonStatus(host, bedrockPort);
+      return await jsonStatus(ghRepo, ghToken, fallbackHost, fallbackBedrock);
     }
     if (url.pathname === "/api/ping") {
       return new Response("pong", { headers: { "Content-Type": "text/plain" } });
     }
 
-    return await renderPage(host, bedrockPort);
+    return await renderPage(ghRepo, ghToken, fallbackHost, fallbackBedrock);
   },
 };
 
-async function fetchJavaStatus(host) {
+// Reads server/status.json from the GitHub repo (works on public repos without auth)
+async function fetchGHStatus(ghRepo, ghToken) {
   try {
-    const res = await fetch(`https://api.mcsrvstat.us/3/${host}`, {
-      cf: { cacheTtl: 30, cacheEverything: true },
-      headers: { "User-Agent": "PAK-MC-Status/1.0" },
-    });
-    return await res.json();
+    const headers = { "User-Agent": "PAK-MC-Status/1.0" };
+    if (ghToken) headers["Authorization"] = `Bearer ${ghToken}`;
+    const res = await fetch(
+      `https://api.github.com/repos/${ghRepo}/contents/server/status.json`,
+      { headers, cf: { cacheTtl: 20, cacheEverything: false } }
+    );
+    if (!res.ok) return null;
+    const json = await res.json();
+    const data = JSON.parse(atob(json.content.replace(/\n/g, "")));
+    // Mark offline if heartbeat is stale (> 6 minutes old)
+    const age = Math.floor(Date.now() / 1000) - (data.last_seen || 0);
+    if (age > 360) data.online = false;
+    return data;
   } catch (e) {
-    return { online: false, error: e.message };
+    return null;
   }
 }
 
-async function fetchBedrockStatus(host, port) {
-  try {
-    const res = await fetch(`https://api.mcsrvstat.us/bedrock/3/${host}:${port}`, {
-      cf: { cacheTtl: 30, cacheEverything: true },
-      headers: { "User-Agent": "PAK-MC-Status/1.0" },
-    });
-    return await res.json();
-  } catch (e) {
-    return { online: false, error: e.message };
-  }
-}
-
-async function jsonStatus(host, bedrockPort) {
-  const [java, bedrock] = await Promise.all([
-    fetchJavaStatus(host),
-    fetchBedrockStatus(host, bedrockPort),
-  ]);
+async function jsonStatus(ghRepo, ghToken, fallbackHost, fallbackBedrock) {
+  const gh = await fetchGHStatus(ghRepo, ghToken);
+  const online        = gh?.online === true;
+  const javaHost      = gh?.java_host    || fallbackHost;
+  const bedrockHost   = gh?.bedrock_host || fallbackHost;
+  const bedrockPort   = gh?.bedrock_port ? String(gh.bedrock_port) : fallbackBedrock;
 
   return new Response(
-    JSON.stringify({ java, bedrock, host, bedrockPort }, null, 2),
+    JSON.stringify({
+      online,
+      players: { online: gh?.players ?? 0, max: gh?.max_players ?? 20 },
+      version: gh?.version ?? "1.21.1",
+      java_host: javaHost,
+      bedrock_host: bedrockHost,
+      bedrock_port: bedrockPort,
+      last_seen: gh?.last_seen ?? null,
+    }, null, 2),
     {
       headers: {
         "Content-Type": JSON_CONTENT_TYPE,
         "Access-Control-Allow-Origin": "*",
-        "Cache-Control": "public, max-age=30",
+        "Cache-Control": "public, max-age=20",
       },
     }
   );
 }
 
-async function renderPage(host, bedrockPort) {
-  const [java, bedrock] = await Promise.all([
-    fetchJavaStatus(host),
-    fetchBedrockStatus(host, bedrockPort),
-  ]);
+async function renderPage(ghRepo, ghToken, fallbackHost, fallbackBedrock) {
+  const gh = await fetchGHStatus(ghRepo, ghToken);
 
-  const online = java?.online === true || bedrock?.online === true;
-  const players = java?.players?.online ?? bedrock?.players?.online ?? 0;
-  const maxPlayers = java?.players?.max ?? bedrock?.players?.max ?? 20;
-  const version = java?.version ?? bedrock?.version?.name ?? "1.21.1";
-  const motdRaw = java?.motd?.clean?.[0] ?? "PAK MC SERVER • We Will Rise Again";
-  const motd = escapeHtml(motdRaw);
-  const playerList = (java?.players?.list ?? []).map((p) => p.name ?? p);
-  const uptimePct = online ? "99.2%" : "0%";
+  const online      = gh?.online === true;
+  const players     = gh?.players    ?? 0;
+  const maxPlayers  = gh?.max_players ?? 20;
+  const version     = gh?.version    ?? "1.21.1";
+  const motdRaw     = "PAK MC SERVER • We Will Rise Again";
+  const motd        = escapeHtml(motdRaw);
+  const playerList  = [];
+  const host        = gh?.java_host    || fallbackHost;
+  const bedrockHost = gh?.bedrock_host || fallbackHost;
+  const bedrockPort = gh?.bedrock_port ? String(gh.bedrock_port) : fallbackBedrock;
+  const uptimePct   = online ? "99.2%" : "0%";
 
   const html = `<!DOCTYPE html>
 <html lang="en">
@@ -656,9 +664,9 @@ footer {
         <div class="platform-icon">🎮</div>
         <div class="platform-info">
           <div class="platform-name">Bedrock Edition <span class="tag">Xbox • Mobile • PS</span></div>
-          <div class="platform-addr" id="addr-bedrock">${host} &nbsp;: <strong>${bedrockPort}</strong></div>
+          <div class="platform-addr" id="addr-bedrock">${bedrockHost} &nbsp;: <strong>${bedrockPort}</strong></div>
         </div>
-        <button class="copy-btn" id="copy-bedrock" onclick="copyAddr('addr-bedrock', 'copy-bedrock', '${host}')">Copy IP</button>
+        <button class="copy-btn" id="copy-bedrock" onclick="copyAddr('addr-bedrock', 'copy-bedrock', '${bedrockHost}')">Copy IP</button>
       </div>
 
     </div>

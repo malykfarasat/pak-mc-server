@@ -135,15 +135,15 @@ ${baseStyles()}
             <div class="endpoint-item">
               <div class="ep-icon" style="color: var(--accent-cyan); background: rgba(0,240,255,0.1);">☕</div>
               <div class="ep-meta">
-                <div class="ep-title">Java Endpoint</div>
-                <div class="ep-addr">${escapeHtml(env.MC_HOST || "mc.pakanonymous.org")}</div>
+                <div class="ep-title">Java / TLauncher</div>
+                <div class="ep-addr" id="conn-java">${escapeHtml(env.MC_HOST || "mc.pakanonymous.org")}</div>
               </div>
             </div>
             <div class="endpoint-item">
               <div class="ep-icon" style="color: var(--accent-pink); background: rgba(255,0,127,0.1);">🎮</div>
               <div class="ep-meta">
-                <div class="ep-title">Bedrock Endpoint</div>
-                <div class="ep-addr">${escapeHtml(env.MC_HOST || "mc.pakanonymous.org")} : ${escapeHtml(env.BEDROCK_PORT || "19132")}</div>
+                <div class="ep-title">Bedrock (Xbox / Mobile / Switch)</div>
+                <div class="ep-addr" id="conn-bedrock">${escapeHtml(env.MC_HOST || "mc.pakanonymous.org")} : ${escapeHtml(env.BEDROCK_PORT || "19132")}</div>
               </div>
             </div>
           </div>
@@ -538,17 +538,22 @@ async function fetchStatus() {
     const online = data?.online === true;
     statusDot.className = "dot " + (online ? "online" : "offline");
     statusText.textContent = online ? "Network Linked" : "Network Unreachable";
-    playerCount.textContent = online ? (data.players?.online || 0) : "—";
-    motdEl.innerHTML = online 
-      ? (data?.motd?.clean?.[0] || "PAK MC SERVER RUNNING") 
+    playerCount.textContent = online ? (data.players?.online ?? 0) : "—";
+    motdEl.innerHTML = online
+      ? "PAK MC SERVER — We Will Rise Again"
       : "<i>Awaiting server boot sequence...</i>";
-      
-    // Logic: if server is technically running but pinging offline, playit is likely completely missing.
-    // We check the admin status. This is heuristic but helpful.
+
+    // Update connection endpoints with live tunnel addresses
+    const connJava    = document.getElementById("conn-java");
+    const connBedrock = document.getElementById("conn-bedrock");
+    if (connJava    && data.java_host)    connJava.textContent    = data.java_host;
+    if (connBedrock && data.bedrock_host) connBedrock.textContent = data.bedrock_host + " : " + (data.bedrock_port || "19132");
+
+    // Show banner if a run is in progress but server is offline (playit may be missing)
     if (!online && document.querySelector('.run-dot.running')) {
-       banner.classList.remove('hidden');
+      banner.classList.remove('hidden');
     } else {
-       banner.classList.add('hidden');
+      banner.classList.add('hidden');
     }
   } catch (e) {
     statusText.textContent = "Telemetry Disconnected";

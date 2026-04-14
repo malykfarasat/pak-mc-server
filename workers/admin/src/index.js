@@ -72,13 +72,37 @@ export default {
         return jsonResponse({ runs });
       }
       if (url.pathname === "/api/status") {
-        const host = env.MC_HOST || "mc.pakanonymous.org";
-        const res = await fetch(`https://api.mcsrvstat.us/3/${host}`, {
-          cf: { cacheTtl: 15, cacheEverything: true },
-        });
-        return new Response(await res.text(), {
-          headers: { "Content-Type": "application/json" },
-        });
+        const ghRepo  = `${env.GITHUB_OWNER}/${env.GITHUB_REPO}`;
+        const ghToken = env.GITHUB_PAT || "";
+        const fallbackHost    = env.MC_HOST      || "mc.pakanonymous.org";
+        const fallbackBedrock = env.BEDROCK_PORT || "19132";
+        let gh = null;
+        try {
+          const headers = { "User-Agent": "PAK-MC-Admin/1.0" };
+          if (ghToken) headers["Authorization"] = `Bearer ${ghToken}`;
+          const r = await fetch(
+            `https://api.github.com/repos/${ghRepo}/contents/server/status.json`,
+            { headers }
+          );
+          if (r.ok) {
+            const j = await r.json();
+            gh = JSON.parse(atob(j.content.replace(/\n/g, "")));
+            const age = Math.floor(Date.now() / 1000) - (gh.last_seen || 0);
+            if (age > 360) gh.online = false;
+          }
+        } catch (_) {}
+        const online = gh?.online === true;
+        const payload = {
+          online,
+          players: { online: gh?.players ?? 0, max: gh?.max_players ?? 20 },
+          version: gh?.version ?? "1.21.1",
+          java_host: gh?.java_host ?? fallbackHost,
+          bedrock_host: gh?.bedrock_host ?? fallbackHost,
+          bedrock_port: gh?.bedrock_port ? String(gh.bedrock_port) : fallbackBedrock,
+          last_seen: gh?.last_seen ?? null,
+          run_id: gh?.run_id ?? null,
+        };
+        return jsonResponse(payload);
       }
       if (url.pathname.startsWith("/api/logs/") && request.method === "GET") {
         const runId = url.pathname.split("/").pop();
