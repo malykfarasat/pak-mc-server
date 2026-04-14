@@ -175,24 +175,10 @@ jobs:
           if [ -n "$IP" ]; then
             HOST="${IP%:*}"
             PORT="${IP#*:}"
-            cat > join_info.txt <<EOF
-            status=ready
-            java_host=$HOST
-            java_port=$PORT
-            bedrock_host=$HOST
-            bedrock_port=19132
-            source=playit_log
-            EOF
+            printf "status=ready\njava_host=%s\njava_port=%s\nbedrock_host=%s\nbedrock_port=19132\nsource=playit_log\n" "$HOST" "$PORT" "$HOST" > join_info.txt
             echo "Join endpoint: $HOST:$PORT"
           else
-            cat > join_info.txt <<'EOF'
-            status=degraded
-            java_host=unknown
-            java_port=25565
-            bedrock_host=unknown
-            bedrock_port=19132
-            source=playit_log_missing
-            EOF
+            printf "status=degraded\njava_host=unknown\njava_port=25565\nbedrock_host=unknown\nbedrock_port=19132\nsource=playit_log_missing\n" > join_info.txt
             echo "::warning::Could not resolve tunnel endpoint from playit.log"
           fi
 
