@@ -588,9 +588,9 @@ footer {
 
 <div class="page">
   <header>
-    <div class="logo-badge"><span class="logo-dot"></span>Pak Server Engine</div>
+    <div class="logo-badge"><span class="logo-dot"></span>Public Server Status</div>
     <h1>We Will<br>Rise Again</h1>
-    <p class="subtitle">Java + Bedrock Cross-Play • TLauncher Welcome</p>
+    <p class="subtitle">Join with friends on Java or Bedrock</p>
   </header>
 
   <!-- ── Status Card ── -->
@@ -625,7 +625,7 @@ footer {
 
     ${!online ? `
     <div class="offline-note">
-      <strong>Server is sleeping.</strong> Start a new run at <a href="https://github.com/malykfarasat/pak-mc-server/actions" style="color:var(--cyan);">GitHub Actions</a> to bring it back online. If it's already running, the DNS may be updating — check back in 2 minutes.
+      <strong>Server is currently offline.</strong> Please check again in a few minutes or ask an admin to start a new session.
     </div>` : ""}
   </div>
 
@@ -714,7 +714,7 @@ footer {
   </div>
 
   <footer>
-    PAK MC SERVER &bull; Cloudflare Workers &bull; Auto-refreshes every 30s
+    PAK MC SERVER &bull; Auto-refreshes every 30s
   </footer>
 </div>
 

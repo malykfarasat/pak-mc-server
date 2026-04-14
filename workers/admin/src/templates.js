@@ -618,4 +618,11 @@ export function renderForbidden(email, env) {
 export function renderError(err, env) {
   return new Response("Error: " + err, { status: 500 });
 }
-function escapeHtml(str) { return String(str ?? ""); }
+function escapeHtml(str) {
+  return String(str ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}

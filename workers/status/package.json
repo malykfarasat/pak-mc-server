@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "PAK MC SERVER public status page (Cloudflare Worker)",
   "private": true,
+  "type": "module",
   "scripts": {
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",

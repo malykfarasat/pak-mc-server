@@ -108,20 +108,29 @@ export async function handleCallback(request, env) {
 
   const signed = await signSession(session, env.SESSION_SECRET);
 
+  const headers = new Headers({ Location: "/" });
+  headers.append(
+    "Set-Cookie",
+    cookie(SESSION_COOKIE, signed, {
+      maxAge: SESSION_MAX_AGE,
+      httpOnly: true,
+      secure: true,
+      sameSite: "Lax",
+    })
+  );
+  headers.append(
+    "Set-Cookie",
+    cookie(STATE_COOKIE, "", {
+      maxAge: 0,
+      httpOnly: true,
+      secure: true,
+      sameSite: "Lax",
+    })
+  );
+
   return new Response(null, {
     status: 302,
-    headers: {
-      Location: "/",
-      "Set-Cookie": [
-        cookie(SESSION_COOKIE, signed, {
-          maxAge: SESSION_MAX_AGE,
-          httpOnly: true,
-          secure: true,
-          sameSite: "Lax",
-        }),
-        cookie(STATE_COOKIE, "", { maxAge: 0 }),
-      ].join(", "),
-    },
+    headers,
   });
 }
 

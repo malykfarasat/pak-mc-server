@@ -61,6 +61,12 @@ jobs:
           chmod +x scripts/install-mods.sh
           ./scripts/install-mods.sh
 
+      - name: Verify bridge mods
+        run: |
+          test -f mods/geyser-fabric.jar
+          test -f mods/floodgate-fabric.jar
+          echo "✅ Geyser + Floodgate Fabric mods detected"
+
       # ── 6. Accept EULA ─────────────────────────────────────────────────────
       - name: Accept EULA
         run: echo "eula=true" > eula.txt
@@ -105,18 +111,7 @@ jobs:
           curl -SsL https://github.com/playit-gg/playit-agent/releases/latest/download/playit-linux-amd64 -o playit
           chmod +x playit
 
-      # ── 11. Start Geyser Bridge (Background) ───────────────────────────────
-      - name: Start Geyser Bridge
-        run: |
-          echo "🌉 Starting Geyser-Standalone Bridge (Bedrock support)..."
-          mkdir -p config/geyser-standalone
-          nohup java -jar Geyser.jar --config config/geyser-standalone/config.yml > geyser.log 2>&1 &
-          echo $! > geyser.pid
-          sleep 5
-          echo "✅ Geyser Bridge started (PID: $(cat geyser.pid))"
-          cat geyser.log | tail -5 || true
-
-      # ── 12. Start playit tunnel ────────────────────────────────────────────
+      # ── 11. Start playit tunnel ────────────────────────────────────────────
       - name: Start playit tunnel
         env:
           PLAYIT_SECRET: ${{ secrets.PLAYIT_SECRET_KEY }}
@@ -134,7 +129,7 @@ jobs:
           cat playit.log || true
           echo "────────────────────────"
 
-      # ── 13. Display Connection Info ─────────────────────────────────────────
+      # ── 12. Display Connection Info ─────────────────────────────────────────
       - name: Display Connection Info
         run: |
           echo "🔍 Parsing playit tunnel address..."
@@ -172,7 +167,7 @@ jobs:
             echo "╚══════════════════════════════════════════════════════════╝"
           fi
 
-      # ── 14. Schedule graceful shutdown ─────────────────────────────────────
+      # ── 13. Schedule graceful shutdown ─────────────────────────────────────
       - name: Schedule graceful shutdown
         env:
           DURATION_MIN: ${{ github.event.inputs.duration || '340' }}
@@ -184,7 +179,7 @@ jobs:
           ) &
           echo "⏱️  Shutdown timer armed: $DURATION_MIN minutes"
 
-      # ── 15. Start the Minecraft server ────────────────────────────────────
+      # ── 14. Start the Minecraft server ────────────────────────────────────
       - name: Start Minecraft server
         env:
           MEMORY: ${{ github.event.inputs.memory || '6G' }}
@@ -214,7 +209,7 @@ jobs:
             -Daikars.new.flags=true \
             -jar fabric-server.jar nogui
 
-      # ── 16. Upload world save as artifact ─────────────────────────────────
+      # ── 15. Upload world save as artifact ─────────────────────────────────
       - name: Upload world backup
         if: always()
         uses: actions/upload-artifact@v4
@@ -226,7 +221,7 @@ jobs:
           retention-days: 30
           if-no-files-found: warn
 
-      # ── 17. Upload playit & geyser logs ───────────────────────────────────
+      # ── 16. Upload debug logs ──────────────────────────────────────────────
       - name: Upload debug logs
         if: always()
         uses: actions/upload-artifact@v4
@@ -234,6 +229,5 @@ jobs:
           name: debug-logs-${{ github.run_number }}
           path: |
             playit.log
-            geyser.log
           retention-days: 7
           if-no-files-found: ignore

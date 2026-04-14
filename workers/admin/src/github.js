@@ -31,6 +31,18 @@ function repoPath(env) {
 // Start server — dispatch the minecraft.yml workflow
 // ─────────────────────────────────────────────────────────────────────────────
 export async function startServer(env, opts = {}) {
+  if (!env.GITHUB_PAT || !env.GITHUB_OWNER || !env.GITHUB_REPO) {
+    return { ok: false, error: "GitHub integration is not configured on admin worker." };
+  }
+
+  const requestedMemory = String(opts.memory || "5G").toUpperCase();
+  const memory = /^(3|4|5|6|7|8)G$/.test(requestedMemory) ? requestedMemory : "5G";
+  const requestedDuration = Number.parseInt(String(opts.duration || 340), 10);
+  const duration = Number.isFinite(requestedDuration)
+    ? Math.max(10, Math.min(350, requestedDuration))
+    : 340;
+  const motd = typeof opts.motd === "string" ? opts.motd.slice(0, 120) : "";
+
   const url = `${GH_API}/repos/${repoPath(env)}/actions/workflows/${MC_WORKFLOW}/dispatches`;
   const res = await fetch(url, {
     method: "POST",
@@ -38,9 +50,9 @@ export async function startServer(env, opts = {}) {
     body: JSON.stringify({
       ref: env.GITHUB_BRANCH || "main",
       inputs: {
-        memory: opts.memory || "5G",
-        duration: String(opts.duration || 340),
-        motd: opts.motd || "",
+        memory,
+        duration: String(duration),
+        motd,
       },
     }),
   });
@@ -56,6 +68,10 @@ export async function startServer(env, opts = {}) {
 // Stop server — cancel any in-progress minecraft.yml runs
 // ─────────────────────────────────────────────────────────────────────────────
 export async function stopServer(env) {
+  if (!env.GITHUB_PAT || !env.GITHUB_OWNER || !env.GITHUB_REPO) {
+    return { ok: false, error: "GitHub integration is not configured on admin worker." };
+  }
+
   const runs = await listRuns(env, { status: "in_progress" });
   if (runs.length === 0) {
     return { ok: true, message: "No running sessions to stop" };

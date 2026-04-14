@@ -61,11 +61,9 @@ download() {
 # ── 1. Fabric API (required) ─────────────────────────────────────────────────
 download "Fabric API" "$(get_modrinth_url "fabric-api" "$MC_VERSION")" "fabric-api.jar"
 
-# ── 2. Geyser-Standalone (Bedrock Bridge) ────────────────────────────────────
-# We download this to the project root, NOT the mods folder.
-echo "  → Geyser-Standalone (Bridge Mode)"
-GEYSER_ST_URL="https://download.geysermc.org/v2/projects/geyser/versions/latest/builds/latest/downloads/standalone"
-download "Geyser-Standalone" "$GEYSER_ST_URL" "Geyser.jar" "$ROOT_DIR"
+# ── 2. Bedrock bridge mods (Fabric-native) ───────────────────────────────────
+download "Geyser Fabric" "$(get_modrinth_url "geyser" "$MC_VERSION")" "geyser-fabric.jar"
+download "Floodgate Fabric" "$(get_modrinth_url "floodgate" "$MC_VERSION")" "floodgate-fabric.jar"
 
 # ── 3. ViaFabricPlus (Cross-version support) ─────────────────────────────────
 download "ViaFabricPlus" "$(get_modrinth_url "viafabricplus" "$MC_VERSION")" "viafabricplus.jar"
@@ -83,8 +81,11 @@ download "Spark" "$(get_modrinth_url "spark" "$MC_VERSION")" "spark.jar"
 
 # ── Cleanup ──────────────────────────────────────────────────────────────────
 cd "$MODS_DIR"
-rm -f viafabric.jar viaversion.jar viabackwards.jar geyser-fabric.jar floodgate-fabric.jar
+rm -f viafabric.jar viaversion.jar viabackwards.jar
 rm -f viafabric-mc*.jar viafabricplus-*.jar
+
+# Remove old standalone bridge artifact when migrating to Fabric-native bridge.
+rm -f "$ROOT_DIR/Geyser.jar"
 
 echo ""
 echo "📋 Final mod list:"
