@@ -64,7 +64,9 @@ jobs:
           test -f "server.properties"
 
           if [ -z "${PLAYIT_SECRET_KEY}${PLAYIT_SECRET}" ]; then
-            echo "::warning::No PLAYIT secret configured. Tunnel will run in claim/guest mode and sharing may be unstable."
+            echo "::error::Missing PLAYIT_SECRET_KEY (or PLAYIT_SECRET). Server cannot be shared without a bound Playit tunnel secret."
+            echo "::error::Create a Playit tunnel, copy its secret key, and store it in repository secrets."
+            exit 1
           fi
 
           cat > join_info.txt <<'EOF'
