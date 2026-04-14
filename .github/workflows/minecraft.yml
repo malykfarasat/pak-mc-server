@@ -104,6 +104,12 @@ jobs:
           restore-keys: |
             pak-mc-root-persistence-
 
+      - name: Reset incompatible Floodgate config
+        run: |
+          rm -f config/floodgate/config.yml
+          mkdir -p config/floodgate
+          echo "::notice::Floodgate config reset so current mod version can regenerate a valid config."
+
       # ── 10. Install playit.gg agent ────────────────────────────────────────
       - name: Install playit.gg agent
         run: |
