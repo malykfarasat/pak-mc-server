@@ -14,7 +14,7 @@ on:
       motd:
         description: "Server Message (MOTD)"
         required: false
-        default: "PAK MC SERVER — Now in Root Mode"
+        default: "PAK MC SERVER — We Will Rise Again"
 
 jobs:
   minecraft:
@@ -108,11 +108,13 @@ jobs:
       # ── 11. Start Geyser Bridge (Background) ───────────────────────────────
       - name: Start Geyser Bridge
         run: |
-          echo "🌉 Initializing Geyser-Standalone Bridge..."
+          echo "🌉 Starting Geyser-Standalone Bridge (Bedrock support)..."
           mkdir -p config/geyser-standalone
-          # Run Geyser in background. It will auto-generate config if missing or use ours.
           nohup java -jar Geyser.jar --config config/geyser-standalone/config.yml > geyser.log 2>&1 &
-          echo "✅ Geyser Bridge started in background"
+          echo $! > geyser.pid
+          sleep 5
+          echo "✅ Geyser Bridge started (PID: $(cat geyser.pid))"
+          cat geyser.log | tail -5 || true
 
       # ── 12. Start playit tunnel ────────────────────────────────────────────
       - name: Start playit tunnel
@@ -120,58 +122,74 @@ jobs:
           PLAYIT_SECRET: ${{ secrets.PLAYIT_SECRET_KEY }}
         run: |
           if [ -z "$PLAYIT_SECRET" ]; then
-            echo "::warning::No PLAYIT_SECRET_KEY secret — starting playit in guest mode"
-            nohup ./playit -s --stdout > playit.log 2>&1 &
+            echo "::warning::No PLAYIT_SECRET_KEY — starting in guest mode (claim URL will appear below)"
+            nohup ./playit > playit.log 2>&1 &
           else
-            echo "🔒 Starting playit with agent secret..."
-            nohup ./playit -s --secret "$PLAYIT_SECRET" --stdout > playit.log 2>&1 &
+            echo "🔒 Starting playit with saved secret..."
+            nohup ./playit --secret "$PLAYIT_SECRET" > playit.log 2>&1 &
           fi
-          sleep 6
+          # Give it time to connect and get an address
+          sleep 20
           echo "────── playit.log ──────"
           cat playit.log || true
           echo "────────────────────────"
 
-      # ── 11.5 Display Connection Info ───────────────────────────────────────
+      # ── 13. Display Connection Info ─────────────────────────────────────────
       - name: Display Connection Info
         run: |
-          echo "⌛ Waiting for connection IP..."
-          sleep 10
-          IP=$(grep -oE '[a-z0-9.-]+\.ply\.gg:[0-9]+' playit.log | head -n 1)
-          if [ -z "$IP" ]; then
-            IP=$(grep -oE '[a-z0-9.-]+\.at\.ply\.gg' playit.log | head -n 1)
-          fi
-          
+          echo "🔍 Parsing playit tunnel address..."
+
+          # Try various patterns for playit address output
+          IP=$(grep -oE 'tcp://[a-z0-9.-]+:[0-9]+' playit.log | head -n1 | sed 's|tcp://||')
+          [ -z "$IP" ] && IP=$(grep -oE '[a-z0-9-]+\.at\.ply\.gg:[0-9]+' playit.log | head -n1)
+          [ -z "$IP" ] && IP=$(grep -oE '[a-z0-9-]+\.ply\.gg:[0-9]+' playit.log | head -n1)
+          [ -z "$IP" ] && IP=$(grep -iE 'address|connect|host' playit.log | grep -oE '[a-z0-9.-]+\.[a-z]{2,}:[0-9]+' | head -n1)
+
           if [ -n "$IP" ]; then
-            echo "════════════════════════════════════════════════════"
-            echo "   🔗 SERVER CONNECTION INFO (TLauncher & Java)     "
-            echo "   IP: $IP                                          "
-            echo "════════════════════════════════════════════════════"
-            echo "   🎮 BEDROCK CONNECTION INFO                       "
-            echo "   Address: ${IP%:*}                                "
-            echo "   Port: ${IP#*:}                                   "
-            echo "════════════════════════════════════════════════════"
+            HOST="${IP%:*}"
+            PORT="${IP#*:}"
+            echo ""
+            echo "╔══════════════════════════════════════════════════╗"
+            echo "║      🇵🇰  PAK MC SERVER — HOW TO JOIN  🇵🇰        ║"
+            echo "╠══════════════════════════════════════════════════╣"
+            echo "║  ☕ JAVA / TLAUNCHER:                            ║"
+            echo "║     Server IP: $IP"
+            echo "║     Version:   Fabric 1.21.1 (any version works) ║"
+            echo "╠══════════════════════════════════════════════════╣"
+            echo "║  🎮 BEDROCK (Xbox / Mobile / PS):               ║"
+            echo "║     Address:   $HOST"
+            echo "║     Port:      19132                             ║"
+            echo "╚══════════════════════════════════════════════════╝"
+            echo ""
           else
-            echo "⚠️ Could not find IP in playit log. Check playit.log artifact."
+            echo "⚠️  Playit tunnel address not found in log."
+            echo "    Dumping full playit.log for debugging:"
+            cat playit.log || true
+            echo ""
+            echo "╔══════════════════════════════════════════════════════════╗"
+            echo "║  ℹ️ SERVER IS RUNNING but tunnel address is unavailable.  ║"
+            echo "║  Check the 'playit-log' artifact in the Actions summary. ║"
+            echo "╚══════════════════════════════════════════════════════════╝"
           fi
 
-      # ── 12. Schedule graceful shutdown ─────────────────────────────────────
+      # ── 14. Schedule graceful shutdown ─────────────────────────────────────
       - name: Schedule graceful shutdown
         env:
           DURATION_MIN: ${{ github.event.inputs.duration || '340' }}
         run: |
           (
             sleep $((DURATION_MIN * 60))
-            echo "⏰ Duration limit reached — sending /stop to server"
+            echo "⏰ Duration limit reached — stopping server"
             pkill -SIGTERM -f "fabric-server.jar" || true
           ) &
-          echo "Shutdown timer armed: $DURATION_MIN min"
+          echo "⏱️  Shutdown timer armed: $DURATION_MIN minutes"
 
-      # ── 13. Start the Minecraft server ─────────────────────────────────────
+      # ── 15. Start the Minecraft server ────────────────────────────────────
       - name: Start Minecraft server
         env:
           MEMORY: ${{ github.event.inputs.memory || '6G' }}
         run: |
-          echo "🚀 Launching server with ${MEMORY} RAM (Root Mode)"
+          echo "🚀 Launching server with ${MEMORY} RAM"
           echo "════════════════════════════════════════════════════"
           java -Xmx${MEMORY} -Xms2G \
             -XX:+UseG1GC \
@@ -196,7 +214,7 @@ jobs:
             -Daikars.new.flags=true \
             -jar fabric-server.jar nogui
 
-      # ── 14. Upload world save as artifact ──────────────────────────────────
+      # ── 16. Upload world save as artifact ─────────────────────────────────
       - name: Upload world backup
         if: always()
         uses: actions/upload-artifact@v4
@@ -208,12 +226,14 @@ jobs:
           retention-days: 30
           if-no-files-found: warn
 
-      # ── 15. Upload playit log for debugging ────────────────────────────────
-      - name: Upload playit log
+      # ── 17. Upload playit & geyser logs ───────────────────────────────────
+      - name: Upload debug logs
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: playit-log-${{ github.run_number }}
-          path: playit.log
+          name: debug-logs-${{ github.run_number }}
+          path: |
+            playit.log
+            geyser.log
           retention-days: 7
           if-no-files-found: ignore
