@@ -1,0 +1,80 @@
+{
+  "schema_version": 1,
+  "minecraft_version": "1.21.1",
+  "loader": "fabric",
+  "notes": "Pin URLs for deterministic installs. Add sha256 values to enforce strict integrity.",
+  "mods": [
+    {
+      "name": "Fabric API",
+      "output": "fabric-api.jar",
+      "sha256": "",
+      "urls": [
+        "https://cdn.modrinth.com/data/P7dR8mSH/versions/bxd6fW4x/fabric-api-0.116.6%2B1.21.1.jar"
+      ]
+    },
+    {
+      "name": "Geyser Fabric",
+      "output": "geyser-fabric.jar",
+      "sha256": "",
+      "urls": [
+        "https://download.geysermc.org/v2/projects/geyser/versions/latest/builds/latest/downloads/fabric"
+      ]
+    },
+    {
+      "name": "Floodgate Fabric",
+      "output": "floodgate-fabric.jar",
+      "sha256": "",
+      "urls": [
+        "https://download.geysermc.org/v2/projects/floodgate/versions/latest/builds/latest/downloads/fabric"
+      ]
+    },
+    {
+      "name": "ViaFabricPlus",
+      "output": "viafabricplus.jar",
+      "sha256": "",
+      "urls": [
+        "https://cdn.modrinth.com/data/rIC2XJV4/versions/lXMdA8Qz/ViaFabricPlus-4.1.1.jar"
+      ]
+    },
+    {
+      "name": "Simple Voice Chat",
+      "output": "voicechat.jar",
+      "sha256": "",
+      "urls": [
+        "https://cdn.modrinth.com/data/9eGKb6K1/versions/Y6v6rTzN/voicechat-fabric-1.21.1-2.5.30.jar"
+      ]
+    },
+    {
+      "name": "Lithium",
+      "output": "lithium.jar",
+      "sha256": "",
+      "urls": [
+        "https://cdn.modrinth.com/data/gvQqBUqZ/versions/6udx5eC7/lithium-fabric-mc1.21.1-0.14.7.jar"
+      ]
+    },
+    {
+      "name": "FerriteCore",
+      "output": "ferrite-core.jar",
+      "sha256": "",
+      "urls": [
+        "https://cdn.modrinth.com/data/uXXizFIs/versions/j0M4nATf/ferritecore-7.0.2-fabric.jar"
+      ]
+    },
+    {
+      "name": "Krypton",
+      "output": "krypton.jar",
+      "sha256": "",
+      "urls": [
+        "https://cdn.modrinth.com/data/fQEb0iXm/versions/F6R7A2QX/krypton-0.2.8.jar"
+      ]
+    },
+    {
+      "name": "Spark",
+      "output": "spark.jar",
+      "sha256": "",
+      "urls": [
+        "https://cdn.modrinth.com/data/l6YH9Als/versions/A9Y4yW3c/spark-1.10.109-fabric.jar"
+      ]
+    }
+  ]
+}

@@ -22,6 +22,7 @@ import {
   stopServer,
   listRuns,
   getRunLogs,
+  getRuntimeOverview,
 } from "./github.js";
 import {
   renderDashboard,
@@ -61,19 +62,24 @@ export default {
       if (url.pathname === "/api/start" && request.method === "POST") {
         const body = await request.json().catch(() => ({}));
         const result = await startServer(env, body);
-        return jsonResponse(result);
+        return jsonResponse(result, result.ok ? 200 : 400);
       }
       if (url.pathname === "/api/stop" && request.method === "POST") {
         const result = await stopServer(env);
-        return jsonResponse(result);
+        return jsonResponse(result, result.ok ? 200 : 400);
       }
       if (url.pathname === "/api/runs") {
         const runs = await listRuns(env);
         return jsonResponse({ runs });
       }
+      if (url.pathname === "/api/overview") {
+        const overview = await getRuntimeOverview(env);
+        return jsonResponse(overview, overview.configured ? 200 : 400);
+      }
       if (url.pathname === "/api/status") {
         const host = env.MC_HOST || "mc.pakanonymous.org";
-        const res = await fetch(`https://api.mcsrvstat.us/3/${host}`, {
+        const source = env.STATUS_API_URL || `https://api.mcsrvstat.us/3/${host}`;
+        const res = await fetch(source, {
           cf: { cacheTtl: 15, cacheEverything: true },
         });
         return new Response(await res.text(), {
@@ -93,9 +99,15 @@ export default {
         return renderDashboard(session, env);
       }
 
+      if (url.pathname.startsWith("/api/")) {
+        return jsonResponse({ ok: false, error: "Not found" }, 404);
+      }
       return new Response("Not found", { status: 404 });
     } catch (err) {
       console.error("Admin worker error:", err);
+      if (url.pathname.startsWith("/api/")) {
+        return jsonResponse({ ok: false, error: "Unexpected server error" }, 500);
+      }
       return renderError(err, env);
     }
   },

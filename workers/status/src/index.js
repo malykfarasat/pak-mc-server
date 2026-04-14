@@ -85,6 +85,7 @@ async function renderPage(host, bedrockPort) {
   const motd = escapeHtml(motdRaw);
   const playerList = (java?.players?.list ?? []).map((p) => p.name ?? p);
   const uptimePct = online ? "99.2%" : "0%";
+  const generatedAt = new Date().toISOString().replace("T", " ").replace("Z", " UTC");
 
   const html = `<!DOCTYPE html>
 <html lang="en">
@@ -714,7 +715,7 @@ footer {
   </div>
 
   <footer>
-    PAK MC SERVER &bull; Auto-refreshes every 30s
+    PAK MC SERVER &bull; Auto-refreshes every 30s &bull; Updated ${generatedAt}
   </footer>
 </div>
 

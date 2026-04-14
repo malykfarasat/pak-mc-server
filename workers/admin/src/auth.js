@@ -93,8 +93,20 @@ export async function handleCallback(request, env) {
   if (!claims || !claims.email) {
     return new Response("Invalid id_token", { status: 500 });
   }
+  if (claims.iss !== "https://accounts.google.com" && claims.iss !== "accounts.google.com") {
+    return new Response("Invalid token issuer", { status: 403 });
+  }
+  if (claims.aud !== env.GOOGLE_CLIENT_ID) {
+    return new Response("Invalid token audience", { status: 403 });
+  }
+  if (!claims.exp || claims.exp < Math.floor(Date.now() / 1000)) {
+    return new Response("Expired token", { status: 403 });
+  }
   if (claims.email_verified !== true) {
     return new Response("Email not verified by Google", { status: 403 });
+  }
+  if (!env.SESSION_SECRET || String(env.SESSION_SECRET).length < 32) {
+    return new Response("SESSION_SECRET is not configured securely", { status: 500 });
   }
 
   // Build our own signed session cookie
@@ -151,6 +163,9 @@ export function handleLogout(request, env) {
 // Session verification
 // ─────────────────────────────────────────────────────────────────────────────
 export async function requireSession(request, env) {
+  if (!env.SESSION_SECRET || String(env.SESSION_SECRET).length < 32) {
+    return null;
+  }
   const cookies = parseCookies(request.headers.get("Cookie") || "");
   const signed = cookies[SESSION_COOKIE];
   if (!signed) return null;

@@ -13,6 +13,7 @@
 
 const GH_API = "https://api.github.com";
 const MC_WORKFLOW = "minecraft.yml";
+const MAX_RETRIES = 3;
 
 function ghHeaders(env) {
   return {
@@ -27,11 +28,35 @@ function repoPath(env) {
   return `${env.GITHUB_OWNER}/${env.GITHUB_REPO}`;
 }
 
+function isConfigured(env) {
+  return Boolean(env.GITHUB_PAT && env.GITHUB_OWNER && env.GITHUB_REPO);
+}
+
+async function ghRequest(env, path, init = {}, retries = MAX_RETRIES) {
+  const res = await fetch(`${GH_API}${path}`, {
+    ...init,
+    headers: {
+      ...ghHeaders(env),
+      ...(init.headers || {}),
+    },
+  });
+
+  if (res.ok) return res;
+
+  const shouldRetry =
+    retries > 1 && (res.status === 429 || res.status >= 500);
+  if (shouldRetry) {
+    await new Promise((resolve) => setTimeout(resolve, (MAX_RETRIES - retries + 1) * 700));
+    return ghRequest(env, path, init, retries - 1);
+  }
+  return res;
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Start server — dispatch the minecraft.yml workflow
 // ─────────────────────────────────────────────────────────────────────────────
 export async function startServer(env, opts = {}) {
-  if (!env.GITHUB_PAT || !env.GITHUB_OWNER || !env.GITHUB_REPO) {
+  if (!isConfigured(env)) {
     return { ok: false, error: "GitHub integration is not configured on admin worker." };
   }
 
@@ -43,10 +68,9 @@ export async function startServer(env, opts = {}) {
     : 340;
   const motd = typeof opts.motd === "string" ? opts.motd.slice(0, 120) : "";
 
-  const url = `${GH_API}/repos/${repoPath(env)}/actions/workflows/${MC_WORKFLOW}/dispatches`;
-  const res = await fetch(url, {
+  const res = await ghRequest(env, `/repos/${repoPath(env)}/actions/workflows/${MC_WORKFLOW}/dispatches`, {
     method: "POST",
-    headers: { ...ghHeaders(env), "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       ref: env.GITHUB_BRANCH || "main",
       inputs: {
@@ -61,14 +85,14 @@ export async function startServer(env, opts = {}) {
     const text = await res.text();
     return { ok: false, status: res.status, error: text };
   }
-  return { ok: true, message: "Server starting — check runs in ~10s" };
+  return { ok: true, message: "Server start submitted. Refresh runs in 10-15 seconds." };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Stop server — cancel any in-progress minecraft.yml runs
 // ─────────────────────────────────────────────────────────────────────────────
 export async function stopServer(env) {
-  if (!env.GITHUB_PAT || !env.GITHUB_OWNER || !env.GITHUB_REPO) {
+  if (!isConfigured(env)) {
     return { ok: false, error: "GitHub integration is not configured on admin worker." };
   }
 
@@ -79,10 +103,9 @@ export async function stopServer(env) {
 
   const results = [];
   for (const run of runs) {
-    const res = await fetch(
-      `${GH_API}/repos/${repoPath(env)}/actions/runs/${run.id}/cancel`,
-      { method: "POST", headers: ghHeaders(env) }
-    );
+    const res = await ghRequest(env, `/repos/${repoPath(env)}/actions/runs/${run.id}/cancel`, {
+      method: "POST",
+    });
     results.push({ id: run.id, cancelled: res.ok });
   }
   return { ok: true, message: `Stopped ${results.length} session(s)`, results };
@@ -92,10 +115,12 @@ export async function stopServer(env) {
 // List recent workflow runs
 // ─────────────────────────────────────────────────────────────────────────────
 export async function listRuns(env, { status = null, limit = 10 } = {}) {
+  if (!isConfigured(env)) return [];
+
   let url = `${GH_API}/repos/${repoPath(env)}/actions/workflows/${MC_WORKFLOW}/runs?per_page=${limit}`;
   if (status) url += `&status=${status}`;
 
-  const res = await fetch(url, { headers: ghHeaders(env) });
+  const res = await ghRequest(env, url.replace(GH_API, ""));
   if (!res.ok) return [];
   const data = await res.json();
 
@@ -118,13 +143,30 @@ export async function listRuns(env, { status = null, limit = 10 } = {}) {
 // Fetch logs for a specific run (returns plaintext)
 // ─────────────────────────────────────────────────────────────────────────────
 export async function getRunLogs(env, runId) {
-  const url = `${GH_API}/repos/${repoPath(env)}/actions/runs/${runId}/logs`;
-  const res = await fetch(url, {
-    headers: ghHeaders(env),
+  const res = await ghRequest(env, `/repos/${repoPath(env)}/actions/runs/${runId}/logs`, {
     redirect: "follow",
   });
   if (!res.ok) return `Failed to fetch logs: ${res.status}`;
   // GitHub returns a zip archive — we can't unzip in a Worker easily,
   // so just tell the user to visit the run URL.
   return `Logs are in a zip archive. Open: https://github.com/${repoPath(env)}/actions/runs/${runId}`;
+}
+
+export async function getRuntimeOverview(env) {
+  if (!isConfigured(env)) {
+    return {
+      configured: false,
+      message: "GitHub integration is not configured.",
+      runs: [],
+    };
+  }
+  const runs = await listRuns(env, { limit: 12 });
+  const active = runs.find((run) => run.status === "in_progress" || run.status === "queued") || null;
+  const latest = runs[0] || null;
+  return {
+    configured: true,
+    active,
+    latest,
+    runs,
+  };
 }

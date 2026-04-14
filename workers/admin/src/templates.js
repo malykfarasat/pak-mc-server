@@ -67,7 +67,7 @@ ${baseStyles()}
         Playit Tunnel Not Configured
       </h3>
       <p style="color: var(--text-muted); font-size: 0.9rem; line-height: 1.5;">
-        You MUST add your <code>PLAYIT_SECRET_KEY</code> as a Repository Secret in your GitHub project settings. Without it, the server runs in guest mode and players cannot connect to <strong>mc.pakanonymous.org</strong>.
+        Configure <code>PLAYIT_SECRET_KEY</code> (or legacy <code>PLAYIT_SECRET</code>) in repository secrets to keep endpoint mapping stable between runs.
       </p>
     </div>
 
@@ -88,6 +88,9 @@ ${baseStyles()}
             </div>
           </div>
           <div class="motd" id="motd">—</div>
+          <div style="margin-top:10px;color:var(--text-muted);font-size:0.78rem;">
+            Last sync: <span id="lastSync">never</span>
+          </div>
         </section>
 
         <!-- ── Controls Card ─────────────────────────────────────────── -->
@@ -523,6 +526,7 @@ const statusDot    = $("statusDot");
 const statusText   = $("statusText");
 const playerCount  = $("playerCount");
 const motdEl       = $("motd");
+const lastSyncEl   = $("lastSync");
 const startBtn     = $("startBtn");
 const stopBtn      = $("stopBtn");
 const refreshBtn   = $("refreshBtn");
@@ -533,25 +537,36 @@ const banner       = $("diagnostic-banner");
 
 async function fetchStatus() {
   try {
-    const res = await fetch("/api/status");
-    const data = await res.json();
+    const [statusRes, overviewRes] = await Promise.all([
+      fetch("/api/status"),
+      fetch("/api/overview"),
+    ]);
+    const data = await statusRes.json();
+    const overview = await overviewRes.json().catch(() => ({}));
     const online = data?.online === true;
     statusDot.className = "dot " + (online ? "online" : "offline");
-    statusText.textContent = online ? "Network Linked" : "Network Unreachable";
+    statusText.textContent = online ? "Server Reachable" : "Offline or Starting";
     playerCount.textContent = online ? (data.players?.online || 0) : "—";
-    motdEl.innerHTML = online 
-      ? (data?.motd?.clean?.[0] || "PAK MC SERVER RUNNING") 
-      : "<i>Awaiting server boot sequence...</i>";
-      
-    // Logic: if server is technically running but pinging offline, playit is likely completely missing.
-    // We check the admin status. This is heuristic but helpful.
-    if (!online && document.querySelector('.run-dot.running')) {
-       banner.classList.remove('hidden');
+    motdEl.textContent = online
+      ? (data?.motd?.clean?.[0] || "PAK MC SERVER RUNNING")
+      : "Awaiting server boot sequence...";
+
+    const hasActiveRun = !!overview?.active;
+    const githubNotConfigured = overview?.configured === false;
+    if (!online && hasActiveRun) {
+      banner.classList.remove('hidden');
     } else {
-       banner.classList.add('hidden');
+      banner.classList.add('hidden');
+    }
+    if (githubNotConfigured) {
+      showToast("GitHub integration is not configured for admin controls.", "error");
+    }
+    if (lastSyncEl) {
+      lastSyncEl.textContent = new Date().toLocaleTimeString();
     }
   } catch (e) {
     statusText.textContent = "Telemetry Disconnected";
+    if (lastSyncEl) lastSyncEl.textContent = "sync failed";
   }
 }
 
@@ -591,7 +606,7 @@ async function callAction(path, btn, label) {
 
 startBtn.addEventListener("click", () => callAction("/api/start", startBtn, "Startup"));
 stopBtn.addEventListener("click",  () => {
-  if (confirm("WARNING: Halting the server forces an immediate disconnection for all active players. Proceed?")) {
+  if (confirm("This will disconnect all players. Continue?")) {
     callAction("/api/stop", stopBtn, "Halt");
   }
 });
@@ -602,7 +617,7 @@ refreshBtn.addEventListener("click", () => {
 });
 
 fetchStatus();
-setInterval(fetchStatus, 20000);
+setInterval(fetchStatus, 15000);
 
 document.addEventListener("DOMContentLoaded", () => {
     if (document.querySelector('.run-dot.running')) {

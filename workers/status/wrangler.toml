@@ -6,6 +6,7 @@ compatibility_date = "2024-11-01"
 [vars]
 MC_HOST      = "mc.pakanonymous.org"
 BEDROCK_PORT = "19132"
+STATUS_SOURCE = "mcsrvstat.us"
 
 # ── Custom domain ─────────────────────────────────────────────────────────────
 # Requires pakanonymous.org to be on Cloudflare. Uncomment after deploying once.

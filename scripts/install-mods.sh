@@ -1,94 +1,90 @@
 #!/usr/bin/env bash
-# ─────────────────────────────────────────────────────────────────────────────
-# PAK MC SERVER — Server mod installer
-# Standardized for Root directory execution and Geyser-Standalone Bridge.
-# ─────────────────────────────────────────────────────────────────────────────
 set -euo pipefail
 
-MC_VERSION="${MC_VERSION:-1.21.1}"
-MODS_DIR="$(cd "$(dirname "$0")/.." && pwd)/mods"
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+LOCK_FILE="${LOCK_FILE:-$ROOT_DIR/config/mods.lock.json}"
+MODS_DIR="$ROOT_DIR/mods"
+TMP_DIR="$ROOT_DIR/.tmp-mod-downloads"
 
-mkdir -p "$MODS_DIR"
+mkdir -p "$MODS_DIR" "$TMP_DIR"
 
-echo "📦 Installing PAK MC SERVER mods for Minecraft $MC_VERSION"
-echo "    Target directory: $MODS_DIR"
+echo "Installing locked mods from: $LOCK_FILE"
 
-# Ensure basic config directories exist
-mkdir -p "$ROOT_DIR/config"
+if [ ! -f "$LOCK_FILE" ]; then
+  echo "ERROR: lock file not found: $LOCK_FILE"
+  exit 1
+fi
 
-# ── Helper: fetch latest Fabric-compatible version from Modrinth ──────────────
-get_modrinth_url() {
-  local slug="$1"
-  local mc="$2"
-  local loader="${3:-fabric}"
+python3 - <<'PY' "$LOCK_FILE" "$TMP_DIR" "$MODS_DIR"
+import hashlib
+import json
+import os
+import shutil
+import sys
+import urllib.error
+import urllib.request
 
-  curl -sSL "https://api.modrinth.com/v2/project/${slug}/version?loaders=%5B%22${loader}%22%5D&game_versions=%5B%22${mc}%22%5D" \
-    | python3 -c "
-import sys, json
-try:
-    data = json.load(sys.stdin)
-    if data and len(data) > 0:
-        print(data[0]['files'][0]['url'])
-    else:
-        sys.exit(1)
-except Exception:
-    sys.exit(1)
-"
-}
+lock_file, tmp_dir, mods_dir = sys.argv[1], sys.argv[2], sys.argv[3]
 
-download() {
-  local name="$1"
-  local url="$2"
-  local filename="$3"
-  local dest="${4:-$MODS_DIR}"
+with open(lock_file, "r", encoding="utf-8") as f:
+    lock = json.load(f)
 
-  if [ -z "$url" ]; then
-    echo "  ⚠️  $name — no URL (skipped)"
-    return 1
-  fi
+mods = lock.get("mods", [])
+if not mods:
+    raise SystemExit("ERROR: lock file has no mods")
 
-  echo "  → $name"
-  if curl -fsSL "$url" -o "$dest/$filename"; then
-    echo "     ✅ $(du -h "$dest/$filename" | cut -f1) → $filename"
-  else
-    echo "     ❌ download failed for $name"
-    rm -f "$dest/$filename"
-    return 1
-  fi
-}
+def sha256_of(path):
+    h = hashlib.sha256()
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(1024 * 1024), b""):
+            h.update(chunk)
+    return h.hexdigest()
 
-# ── 1. Fabric API (required) ─────────────────────────────────────────────────
-download "Fabric API" "$(get_modrinth_url "fabric-api" "$MC_VERSION")" "fabric-api.jar"
+for mod in mods:
+    name = mod["name"]
+    output = mod["output"]
+    urls = mod.get("urls", [])
+    expected_sha = (mod.get("sha256") or "").strip().lower()
 
-# ── 2. Bedrock bridge mods (Fabric-native) ───────────────────────────────────
-download "Geyser Fabric" "$(get_modrinth_url "geyser" "$MC_VERSION")" "geyser-fabric.jar"
-download "Floodgate Fabric" "$(get_modrinth_url "floodgate" "$MC_VERSION")" "floodgate-fabric.jar"
+    if not urls:
+        raise SystemExit(f"ERROR: no URLs configured for {name}")
 
-# ── 3. ViaFabricPlus (Cross-version support) ─────────────────────────────────
-download "ViaFabricPlus" "$(get_modrinth_url "viafabricplus" "$MC_VERSION")" "viafabricplus.jar"
+    target = os.path.join(mods_dir, output)
+    temp_target = os.path.join(tmp_dir, output)
+    downloaded = False
+    last_error = ""
 
-# ── 4. Simple Voice Chat ─────────────────────────────────────────────────────
-download "Simple Voice Chat" "$(get_modrinth_url "simple-voice-chat" "$MC_VERSION")" "voicechat.jar"
+    print(f"-> {name}")
+    for url in urls:
+        try:
+            req = urllib.request.Request(url, headers={"User-Agent": "pak-mc-server-installer/1.0"})
+            with urllib.request.urlopen(req, timeout=90) as r, open(temp_target, "wb") as out:
+                shutil.copyfileobj(r, out)
+            downloaded = True
+            print(f"   downloaded from {url}")
+            break
+        except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError) as e:
+            last_error = str(e)
+            print(f"   failed {url}: {e}")
 
-# ── 5. Performance Mods ──────────────────────────────────────────────────────
-download "Lithium" "$(get_modrinth_url "lithium" "$MC_VERSION")" "lithium.jar"
-download "FerriteCore" "$(get_modrinth_url "ferrite-core" "$MC_VERSION")" "ferrite-core.jar"
-download "Krypton" "$(get_modrinth_url "krypton" "$MC_VERSION")" "krypton.jar"
+    if not downloaded:
+        raise SystemExit(f"ERROR: could not download {name}. Last error: {last_error}")
 
-# ── 6. Spark (Diagnostic) ────────────────────────────────────────────────────
-download "Spark" "$(get_modrinth_url "spark" "$MC_VERSION")" "spark.jar"
+    actual_sha = sha256_of(temp_target)
+    if expected_sha and expected_sha != actual_sha:
+        raise SystemExit(
+            f"ERROR: checksum mismatch for {name}. expected={expected_sha} actual={actual_sha}"
+        )
 
-# ── Cleanup ──────────────────────────────────────────────────────────────────
-cd "$MODS_DIR"
-rm -f viafabric.jar viaversion.jar viabackwards.jar
-rm -f viafabric-mc*.jar viafabricplus-*.jar
+    shutil.move(temp_target, target)
+    print(f"   ok -> {target} sha256={actual_sha[:16]}...")
 
-# Remove old standalone bridge artifact when migrating to Fabric-native bridge.
+print("Locked mod installation complete.")
+PY
+
+rm -rf "$TMP_DIR"
 rm -f "$ROOT_DIR/Geyser.jar"
 
 echo ""
-echo "📋 Final mod list:"
-ls -lh *.jar 2>/dev/null || echo "  (none)"
-echo ""
-echo "✅ Mod installation complete"
+echo "Final mods:"
+ls -lh "$MODS_DIR"/*.jar

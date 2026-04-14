@@ -1,98 +1,126 @@
-name: 🎮 PAK MC SERVER
+name: PAK MC SERVER Runtime
 
 on:
   workflow_dispatch:
     inputs:
       memory:
-        description: "RAM Allocation (e.g. 5G, 8G)"
+        description: "RAM Allocation (3G-6G)"
         required: false
-        default: "6G"
+        default: "5G"
       duration:
         description: "Run Duration (minutes)"
         required: false
         default: "340"
       motd:
-        description: "Server Message (MOTD)"
+        description: "Server MOTD override"
         required: false
-        default: "PAK MC SERVER — We Will Rise Again"
+        default: "PAK MC SERVER - We Will Rise Again"
+
+concurrency:
+  group: pak-mc-server-runtime
+  cancel-in-progress: false
 
 jobs:
   minecraft:
-    name: 🎮 PAK MC SERVER
+    name: Start Minecraft Runtime
     runs-on: ubuntu-latest
-
     env:
       MC_VERSION: "1.21.1"
       FABRIC_LOADER_VERSION: "0.16.9"
       FABRIC_INSTALLER_VERSION: "1.0.1"
-
     steps:
-      # ── 1. Checkout Repository ─────────────────────────────────────────────
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # ── 2. Greeting & Setup ────────────────────────────────────────────────
-      - name: Welcome message
+      - name: Validate runtime inputs
+        env:
+          MEMORY_INPUT: ${{ github.event.inputs.memory || '5G' }}
+          DURATION_INPUT: ${{ github.event.inputs.duration || '340' }}
         run: |
-          echo "════════════════════════════════════════════════════"
-          echo "   🇵🇰  PAK MC SERVER — INFRASTRUCTURE STARTUP  🇵🇰   "
-          echo "════════════════════════════════════════════════════"
+          case "$MEMORY_INPUT" in
+            3G|4G|5G|6G) ;;
+            *) echo "::error::Invalid memory value '$MEMORY_INPUT'. Use one of: 3G,4G,5G,6G"; exit 1 ;;
+          esac
 
-      # ── 3. Java 21 ─────────────────────────────────────────────────────────
+          if ! [[ "$DURATION_INPUT" =~ ^[0-9]+$ ]]; then
+            echo "::error::Duration must be numeric. Got '$DURATION_INPUT'"
+            exit 1
+          fi
+          if [ "$DURATION_INPUT" -lt 10 ] || [ "$DURATION_INPUT" -gt 350 ]; then
+            echo "::error::Duration must be between 10 and 350 minutes."
+            exit 1
+          fi
+
+          echo "RUNTIME_MEMORY=$MEMORY_INPUT" >> "$GITHUB_ENV"
+          echo "RUNTIME_DURATION=$DURATION_INPUT" >> "$GITHUB_ENV"
+
+      - name: Preflight checks
+        env:
+          PLAYIT_SECRET_KEY: ${{ secrets.PLAYIT_SECRET_KEY }}
+          PLAYIT_SECRET: ${{ secrets.PLAYIT_SECRET }}
+        run: |
+          test -f "scripts/install-mods.sh"
+          test -f "config/mods.lock.json"
+          test -f "server.properties"
+
+          if [ -z "${PLAYIT_SECRET_KEY}${PLAYIT_SECRET}" ]; then
+            echo "::warning::No PLAYIT secret configured. Tunnel will run in claim/guest mode and sharing may be unstable."
+          fi
+
+          cat > join_info.txt <<'EOF'
+          status=starting
+          java_host=unknown
+          java_port=25565
+          bedrock_host=unknown
+          bedrock_port=19132
+          source=workflow_preflight
+          EOF
+
       - name: Set up Java 21
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: "21"
 
-      # ── 4. Download Fabric server JAR ──────────────────────────────────────
       - name: Download Fabric server
         run: |
-          echo "⬇️  Downloading Fabric server for MC $MC_VERSION..."
           URL="https://meta.fabricmc.net/v2/versions/loader/${MC_VERSION}/${FABRIC_LOADER_VERSION}/${FABRIC_INSTALLER_VERSION}/server/jar"
           curl -fsSL "$URL" -o fabric-server.jar
+          test -s fabric-server.jar
           ls -lh fabric-server.jar
 
-      # ── 5. Install mods ────────────────────────────────────────────────────
-      - name: Install server mods
-        env:
-          MC_VERSION: ${{ env.MC_VERSION }}
+      - name: Install server mods from lock file
         run: |
           chmod +x scripts/install-mods.sh
           ./scripts/install-mods.sh
 
-      - name: Verify bridge mods
+      - name: Verify required bridge mods
         run: |
           test -f mods/geyser-fabric.jar
           test -f mods/floodgate-fabric.jar
-          echo "✅ Geyser + Floodgate Fabric mods detected"
+          echo "Bridge mods verified"
 
-      # ── 6. Accept EULA ─────────────────────────────────────────────────────
       - name: Accept EULA
         run: echo "eula=true" > eula.txt
 
-      # ── 7. Apply custom MOTD if provided ───────────────────────────────────
       - name: Apply custom MOTD
         if: github.event.inputs.motd != ''
         run: |
           sed -i "s|^motd=.*|motd=${{ github.event.inputs.motd }}|" server.properties
 
-      # ── 8. Configure RCON ──────────────────────────────────────────────────
       - name: Configure RCON
         env:
           RCON_PASSWORD: ${{ secrets.RCON_PASSWORD }}
         run: |
           if [ -n "$RCON_PASSWORD" ]; then
             sed -i "s|^rcon.password=.*|rcon.password=$RCON_PASSWORD|" server.properties
-            echo "✅ RCON password set from secret"
           else
             RANDOM_PW=$(openssl rand -hex 16)
             sed -i "s|^rcon.password=.*|rcon.password=$RANDOM_PW|" server.properties
-            echo "::notice::RCON password randomized"
+            echo "::notice::RCON_PASSWORD not set. Generated temporary password."
           fi
 
-      # ── 9. Restore persistence from cache ──────────────────────────────────
-      - name: Restore persistence from cache
+      - name: Restore world persistence cache
         id: cache-persistence
         uses: actions/cache@v4
         with:
@@ -100,6 +128,7 @@ jobs:
             world
             config
             playit.toml
+            join_info.txt
           key: pak-mc-root-persistence-${{ github.run_id }}
           restore-keys: |
             pak-mc-root-persistence-
@@ -108,40 +137,28 @@ jobs:
         run: |
           rm -f config/floodgate/config.yml
           mkdir -p config/floodgate
-          echo "::notice::Floodgate config reset so current mod version can regenerate a valid config."
+          echo "::notice::Reset floodgate config for clean generation."
 
-      # ── 10. Install playit.gg agent ────────────────────────────────────────
       - name: Install playit.gg agent
         run: |
-          echo "⬇️  Downloading playit.gg agent..."
           curl -fsSL https://github.com/playit-cloud/playit-agent/releases/latest/download/playit-linux-amd64 -o playit
           chmod +x playit
-          ./playit --version || true
 
-      # ── 11. Start playit tunnel ────────────────────────────────────────────
       - name: Start playit tunnel
         env:
           PLAYIT_SECRET: ${{ secrets.PLAYIT_SECRET_KEY || secrets.PLAYIT_SECRET }}
         run: |
-          if [ -z "$PLAYIT_SECRET" ]; then
-            echo "::warning::No PLAYIT_SECRET_KEY — starting in guest mode (claim URL will appear below)"
-            nohup ./playit > playit.log 2>&1 &
-          else
-            echo "🔒 Starting playit with saved secret..."
+          if [ -n "$PLAYIT_SECRET" ]; then
             nohup ./playit --secret "$PLAYIT_SECRET" > playit.log 2>&1 &
+          else
+            nohup ./playit > playit.log 2>&1 &
           fi
-          # Give it time to connect and get an address
+          echo $! > playit.pid
           sleep 20
-          echo "────── playit.log ──────"
           cat playit.log || true
-          echo "────────────────────────"
 
-      # ── 12. Display Connection Info ─────────────────────────────────────────
-      - name: Display Connection Info
+      - name: Resolve join endpoints
         run: |
-          echo "🔍 Parsing playit tunnel address..."
-
-          # Try various patterns for playit address output
           IP=$(grep -oE 'tcp://[a-z0-9.-]+:[0-9]+' playit.log | head -n1 | sed 's|tcp://||')
           [ -z "$IP" ] && IP=$(grep -oE '[a-z0-9-]+\.at\.ply\.gg:[0-9]+' playit.log | head -n1)
           [ -z "$IP" ] && IP=$(grep -oE '[a-z0-9-]+\.ply\.gg:[0-9]+' playit.log | head -n1)
@@ -150,50 +167,38 @@ jobs:
           if [ -n "$IP" ]; then
             HOST="${IP%:*}"
             PORT="${IP#*:}"
-            echo ""
-            echo "╔══════════════════════════════════════════════════╗"
-            echo "║      🇵🇰  PAK MC SERVER — HOW TO JOIN  🇵🇰        ║"
-            echo "╠══════════════════════════════════════════════════╣"
-            echo "║  ☕ JAVA / TLAUNCHER:                            ║"
-            echo "║     Server IP: $IP"
-            echo "║     Version:   Fabric 1.21.1 (any version works) ║"
-            echo "╠══════════════════════════════════════════════════╣"
-            echo "║  🎮 BEDROCK (Xbox / Mobile / PS):               ║"
-            echo "║     Address:   $HOST"
-            echo "║     Port:      19132                             ║"
-            echo "╚══════════════════════════════════════════════════╝"
-            echo ""
+            cat > join_info.txt <<EOF
+            status=ready
+            java_host=$HOST
+            java_port=$PORT
+            bedrock_host=$HOST
+            bedrock_port=19132
+            source=playit_log
+            EOF
+            echo "Join endpoint: $HOST:$PORT"
           else
-            echo "⚠️  Playit tunnel address not found in log."
-            echo "    Dumping full playit.log for debugging:"
-            cat playit.log || true
-            echo ""
-            echo "╔══════════════════════════════════════════════════════════╗"
-            echo "║  ℹ️ SERVER IS RUNNING but tunnel address is unavailable.  ║"
-            echo "║  Check the 'playit-log' artifact in the Actions summary. ║"
-            echo "╚══════════════════════════════════════════════════════════╝"
+            cat > join_info.txt <<'EOF'
+            status=degraded
+            java_host=unknown
+            java_port=25565
+            bedrock_host=unknown
+            bedrock_port=19132
+            source=playit_log_missing
+            EOF
+            echo "::warning::Could not resolve tunnel endpoint from playit.log"
           fi
 
-      # ── 13. Schedule graceful shutdown ─────────────────────────────────────
       - name: Schedule graceful shutdown
-        env:
-          DURATION_MIN: ${{ github.event.inputs.duration || '340' }}
         run: |
           (
-            sleep $((DURATION_MIN * 60))
-            echo "⏰ Duration limit reached — stopping server"
+            sleep $((RUNTIME_DURATION * 60))
+            echo "Duration reached. Requesting graceful shutdown."
             pkill -SIGTERM -f "fabric-server.jar" || true
           ) &
-          echo "⏱️  Shutdown timer armed: $DURATION_MIN minutes"
 
-      # ── 14. Start the Minecraft server ────────────────────────────────────
       - name: Start Minecraft server
-        env:
-          MEMORY: ${{ github.event.inputs.memory || '6G' }}
         run: |
-          echo "🚀 Launching server with ${MEMORY} RAM"
-          echo "════════════════════════════════════════════════════"
-          java -Xmx${MEMORY} -Xms2G \
+          java -Xmx${RUNTIME_MEMORY} -Xms2G \
             -XX:+UseG1GC \
             -XX:+ParallelRefProcEnabled \
             -XX:MaxGCPauseMillis=200 \
@@ -216,7 +221,6 @@ jobs:
             -Daikars.new.flags=true \
             -jar fabric-server.jar nogui
 
-      # ── 15. Upload world save as artifact ─────────────────────────────────
       - name: Upload world backup
         if: always()
         uses: actions/upload-artifact@v4
@@ -228,13 +232,14 @@ jobs:
           retention-days: 30
           if-no-files-found: warn
 
-      # ── 16. Upload debug logs ──────────────────────────────────────────────
-      - name: Upload debug logs
+      - name: Upload runtime diagnostics
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: debug-logs-${{ github.run_number }}
+          name: runtime-diagnostics-${{ github.run_number }}
           path: |
+            join_info.txt
             playit.log
-          retention-days: 7
+            logs/latest.log
+          retention-days: 14
           if-no-files-found: ignore

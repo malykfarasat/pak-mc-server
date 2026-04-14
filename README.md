@@ -1,113 +1,99 @@
-# ★ PAK MC SERVER
+# PAK MC SERVER
 
-**Free Minecraft hosting for Java + Bedrock players** — powered by GitHub Actions and Cloudflare Workers.
+Production-ready Minecraft runtime on GitHub Actions with Cloudflare Worker control plane.
 
-- ☕ **Java Edition** (all versions 1.8+ via ViaVersion)
-- 🎮 **Bedrock Edition** (Xbox, PlayStation, Switch, Mobile, Windows 10) via Geyser + Floodgate
-- 🌐 **Custom domain**: `mc.pakanonymous.org`
-- 📊 **Status page**: `status.pakanonymous.org`
-- 🔒 **Admin panel**: `admin.pakanonymous.org` (Google login, locked to one email)
-- 🎙️ **Voice chat** via Simple Voice Chat mod
-- 💾 **Persistent world** across sessions (GitHub Actions cache + artifacts)
+## What this project provides
 
----
+- Reliable Java + Bedrock server runtime (`workflow_dispatch` based)
+- Public player status page (`status.pakanonymous.org`)
+- Admin dashboard with Google OAuth (`admin.pakanonymous.org`)
+- Deterministic mod installation using a lock file (`config/mods.lock.json`)
+- Runtime diagnostics artifacts with canonical join output (`join_info.txt`)
 
-## Project layout
+## Architecture
 
+- `/.github/workflows/minecraft.yml`  
+  Starts the game server, tunnel, and persistence pipeline.
+- `/scripts/install-mods.sh` + `/config/mods.lock.json`  
+  Deterministic mod installation from pinned URLs.
+- `/workers/status`  
+  Public status UI/API for players.
+- `/workers/admin`  
+  Protected admin UI/API for server operations.
+
+## Required secrets
+
+Set in **GitHub Repository Settings -> Secrets and variables -> Actions**:
+
+- `PLAYIT_SECRET_KEY` (preferred) or `PLAYIT_SECRET` (legacy fallback)
+- `CLOUDFLARE_API_TOKEN`
+- `CLOUDFLARE_ACCOUNT_ID`
+- `GOOGLE_CLIENT_ID`
+- `GOOGLE_CLIENT_SECRET`
+- `SESSION_SECRET` (32+ chars)
+- `GH_DISPATCH_TOKEN` (fine-grained PAT with actions read/write)
+- `RCON_PASSWORD` (optional, recommended)
+
+## Start a server session
+
+1. Open GitHub Actions.
+2. Run workflow: `PAK MC SERVER Runtime`.
+3. Choose runtime inputs:
+   - memory: `3G` to `6G`
+   - duration: `10` to `350` minutes
+   - motd: optional
+4. Wait for `Start Minecraft server` step.
+
+## Get join info
+
+Every run uploads `runtime-diagnostics-<run_number>` containing:
+
+- `join_info.txt` (canonical endpoint)
+- `playit.log`
+- `logs/latest.log`
+
+`join_info.txt` fields:
+
+- `status` (`ready`, `degraded`, etc.)
+- `java_host`
+- `java_port`
+- `bedrock_host`
+- `bedrock_port`
+- `source`
+
+## Player connection
+
+- Java: `mc.pakanonymous.org` (or host/port from `join_info.txt`)
+- Bedrock: same host, port `19132`
+
+## Local development
+
+Status worker:
+
+```bash
+cd workers/status
+npm install
+npm run dev
 ```
-pak-mc-server/
-│
-├── .github/workflows/
-│   ├── minecraft.yml           ▸ Runs the Minecraft server
-│   ├── stop-server.yml         ▸ Stops any running server
-│   └── deploy-workers.yml      ▸ Deploys Cloudflare Workers on push
-│
-├── server/
-│   ├── server.properties       ▸ Server config (online-mode=false for Floodgate)
-│   ├── ops.json                ▸ Server operators
-│   ├── whitelist.json          ▸ Player whitelist
-│   ├── config/
-│   │   ├── geyser/config.yml   ▸ Bedrock bridge config
-│   │   └── floodgate/config.yml▸ Bedrock auth config
-│   └── mods/                   ▸ Mods (auto-installed by script)
-│
-├── workers/
-│   ├── status/                 ▸ Public status page
-│   │   ├── src/index.js
-│   │   ├── wrangler.toml
-│   │   └── package.json
-│   └── admin/                  ▸ Admin panel with Google OAuth
-│       ├── src/
-│       │   ├── index.js        ▸ Router
-│       │   ├── auth.js         ▸ Google OAuth + signed sessions
-│       │   ├── github.js       ▸ GitHub API client
-│       │   └── templates.js    ▸ HTML views
-│       ├── wrangler.toml
-│       └── package.json
-│
-├── scripts/
-│   ├── install-mods.sh             ▸ Downloads all server mods
-│   ├── setup-cloudflare-dns.sh     ▸ Creates DNS records via CF API
-│   └── generate-session-secret.sh  ▸ Makes a random SESSION_SECRET
-│
-├── docs/
-│   ├── SETUP.md                ▸ Step-by-step setup walkthrough
-│   ├── ARCHITECTURE.md         ▸ How the pieces fit together
-│   └── TROUBLESHOOTING.md      ▸ Common issues and fixes
-│
-├── README.md
-└── .gitignore
+
+Admin worker:
+
+```bash
+cd workers/admin
+npm install
+npm run dev
 ```
 
----
+## Operational notes
 
-## Quick start
+- Only one runtime session is allowed at a time via workflow concurrency lock.
+- Floodgate config is reset at boot to avoid stale cache incompatibility.
+- If `PLAYIT_SECRET_KEY` is missing, tunnel can start in guest mode and endpoint stability is not guaranteed.
 
-See [`docs/SETUP.md`](docs/SETUP.md) for the full walkthrough.
+## Deployment
 
-Short version:
+Worker deployment is automated by:
 
-1. **Push this project to a GitHub repo** named `pak-mc-server`
-2. **Create a [playit.gg](https://playit.gg) account** → make a Minecraft tunnel → copy the agent secret
-3. **Create a Google OAuth client** at [console.cloud.google.com](https://console.cloud.google.com)
-4. **Add secrets** to your GitHub repo → Settings → Secrets → Actions:
-   - `PLAYIT_SECRET_KEY`
-   - `CLOUDFLARE_API_TOKEN`
-   - `CLOUDFLARE_ACCOUNT_ID`
-   - `GOOGLE_CLIENT_ID`
-   - `GOOGLE_CLIENT_SECRET`
-   - `SESSION_SECRET`  *(run `scripts/generate-session-secret.sh`)*
-   - `GH_DISPATCH_TOKEN` *(fine-grained PAT with actions:write)*
-5. **Deploy Cloudflare Workers** — push to `main`, the deploy-workers workflow takes care of it
-6. **Go to `admin.pakanonymous.org`**, log in with `malikmuhammadfarasatali@gmail.com`, click **Start Server**
+- `.github/workflows/deploy-workers.yml`
 
----
-
-## How players connect
-
-| Platform | Address |
-|---|---|
-| Java Edition (any version 1.8+) | `mc.pakanonymous.org` |
-| Bedrock Edition (Xbox, PS, Switch, Mobile, Win10) | `mc.pakanonymous.org` port `19132` |
-
----
-
-## Tech stack
-
-| Layer | Technology |
-|---|---|
-| Compute | GitHub Actions (ubuntu-latest, 7GB RAM, 6h max) |
-| Minecraft core | Fabric 1.21.1 + Fabric API |
-| Bedrock bridge | Geyser-Fabric + Floodgate |
-| Multi-version | ViaFabric + ViaFabricPlus |
-| Performance | Lithium + FerriteCore + Krypton |
-| Tunneling | playit.gg agent (TCP 25565 + UDP 19132) |
-| DNS + edge | Cloudflare |
-| Status page | Cloudflare Worker (mcsrvstat.us backend) |
-| Admin panel | Cloudflare Worker + Google OAuth 2.0 |
-| Session auth | HMAC-SHA256 signed cookies |
-| World persistence | GitHub Actions cache + artifacts |
-
----
-
-**⚠️ Important:** `online-mode=false` is set in `server.properties`. This is **required** for Floodgate (Bedrock players) to work and also allows TLauncher/cracked Java accounts. For a Mojang-account-only server, also change the Floodgate config.
+This workflow validates secrets, deploys both workers, and runs basic smoke checks.
