@@ -121,7 +121,7 @@ jobs:
       # ── 11. Start playit tunnel ────────────────────────────────────────────
       - name: Start playit tunnel
         env:
-          PLAYIT_SECRET: ${{ secrets.PLAYIT_SECRET_KEY }}
+          PLAYIT_SECRET: ${{ secrets.PLAYIT_SECRET_KEY || secrets.PLAYIT_SECRET }}
         run: |
           if [ -z "$PLAYIT_SECRET" ]; then
             echo "::warning::No PLAYIT_SECRET_KEY — starting in guest mode (claim URL will appear below)"
